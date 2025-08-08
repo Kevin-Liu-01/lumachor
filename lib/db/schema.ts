@@ -47,7 +47,17 @@ export const context = pgTable('Context', {
   createdBy: uuid('createdBy').notNull().references(() => user.id),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 });
+
+// NEW: public_context — a published pointer to the original context
+export const publicContext = pgTable('public_context', {
+  id: text('id').primaryKey(),                 // uuid
+  contextId: text('context_id').notNull(),     // FK to context.id
+  createdBy: text('created_by').notNull(),     // who published it
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+});
+
 export type Context = InferSelectModel<typeof context>;
+export type PublicContext = typeof publicContext.$inferSelect;
 
 export const chatContext = pgTable(
   'ChatContext',
@@ -181,3 +191,15 @@ export const stream = pgTable(
   }),
 );
 export type Stream = InferSelectModel<typeof stream>;
+
+export const contextStar = pgTable(
+  'context_star',
+  {
+    userId: text('user_id').notNull(),
+    contextId: text('context_id').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.contextId] }),
+  })
+);

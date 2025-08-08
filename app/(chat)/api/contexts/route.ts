@@ -1,3 +1,4 @@
+// app/api/contexts/route.ts
 import 'server-only';
 
 import { NextResponse } from 'next/server';
@@ -7,14 +8,14 @@ import { ChatSDKError } from '@/lib/errors';
 
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { and, ilike, eq, sql } from 'drizzle-orm';
+import { and, ilike, eq, inArray, desc, sql } from 'drizzle-orm';
 import {
   context as ContextTable,
+  contextStar as ContextStar,
   type Context,
   user as UserTable,
 } from '@/lib/db/schema';
 
-// Route-scoped Drizzle client
 function getDb() {
   const client = postgres(process.env.POSTGRES_URL!);
   return drizzle(client);
@@ -38,84 +39,92 @@ async function ensureUser(
     .limit(1);
   if (existing) return existing;
 
-  const safeEmail =
-    email && email.length <= 64 ? email : `guest-${Date.now()}`;
-
-  const [created] = await db
-    .insert(UserTable)
-    .values({ id, email: safeEmail })
-    .returning();
+  const safeEmail = email && email.length <= 64 ? email : `guest-${Date.now()}`;
+  const [created] = await db.insert(UserTable).values({ id, email: safeEmail }).returning();
   return created;
 }
 
 export async function GET(req: Request) {
   try {
     const session = await auth();
-    if (!session?.user) {
-      return new ChatSDKError('unauthorized:chat').toResponse();
-    }
+    if (!session?.user) return new ChatSDKError('unauthorized:chat').toResponse();
 
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get('q') || '').trim();
     const tag = (searchParams.get('tag') || '').trim();
     const mine = searchParams.get('mine') === 'true';
+    const withMeta = searchParams.get('withMeta') === '1';
 
     const db = getDb();
 
-    const where: any[] = [];
+    const conds: any[] = [];
     if (q) {
-      where.push(
-        sql`(${ilike(ContextTable.name, '%' + q + '%')} OR ${ilike(
-          ContextTable.description,
-          '%' + q + '%',
-        )})`,
-      );
+      const pattern = `%${q}%`;
+      conds.push(sql`(${ilike(ContextTable.name, pattern)} OR ${ilike(ContextTable.description, pattern)})`);
     }
     if (tag) {
-      where.push(sql`${tag} = ANY(${ContextTable.tags})`);
+      conds.push(sql`${tag} = ANY(${ContextTable.tags})`);
     }
     if (mine && session.user.id) {
-      where.push(eq(ContextTable.createdBy, session.user.id as string));
+      conds.push(eq(ContextTable.createdBy, session.user.id as string));
     }
 
     const rows = await db
       .select()
       .from(ContextTable)
-      .where(where.length ? and(...where) : undefined)
-      .orderBy(sql`${ContextTable.createdAt} DESC`)
+      .where(conds.length ? and(...conds) : undefined)
+      .orderBy(desc(ContextTable.createdAt))
       .limit(50);
 
-    return NextResponse.json({ contexts: rows as Context[] });
-  } catch {
-    return new ChatSDKError(
-      'bad_request:database',
-      'Failed to list contexts',
-    ).toResponse();
+    if (!withMeta) {
+      return NextResponse.json({ contexts: rows as Context[] });
+    }
+
+    // withMeta: annotate liked + owner for the current user
+    const ids = rows.map((r) => r.id);
+    let likedSet = new Set<string>();
+    if (ids.length) {
+      // Works regardless of TEXT vs UUID in your context_star schema.
+      const stars = await db
+        .select()
+        .from(ContextStar)
+        .where(and(
+          eq(ContextStar.userId as any, session.user.id as string),
+          inArray(ContextStar.contextId as any, ids as any[]),
+        ));
+      likedSet = new Set(stars.map((s) => s.contextId));
+    }
+
+    const out = rows.map((r) => ({
+      ...r,
+      liked: likedSet.has(r.id),
+      owner: r.createdBy === (session.user.id as string),
+    }));
+
+    return NextResponse.json({ contexts: out });
+  } catch (e) {
+    console.error('[GET /api/contexts] error:', e);
+    return new ChatSDKError('bad_request:database', 'Failed to list contexts').toResponse();
   }
 }
 
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return new ChatSDKError('unauthorized:chat').toResponse();
-    }
+    if (!session?.user?.id) return new ChatSDKError('unauthorized:chat').toResponse();
 
     const json = await req.json();
     const body = CreateBody.parse(json);
 
     const db = getDb();
-    await ensureUser(db, {
-      id: session.user.id as string,
-      email: session.user.email ?? null,
-    });
+    await ensureUser(db, { id: session.user.id as string, email: session.user.email ?? null });
 
     const [row] = await db
       .insert(ContextTable)
       .values({
         name: body.name,
         content: body.content,
-        tags: body.tags || [],
+        tags: (body.tags || []).map((t) => t.toLowerCase()),
         description: body.description ?? '',
         createdBy: session.user.id as string,
         createdAt: new Date(),
@@ -124,12 +133,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ context: row }, { status: 201 });
   } catch (err: any) {
+    console.error('[POST /api/contexts] error:', err);
     if (err?.issues) {
       return new ChatSDKError('bad_request:api', 'Invalid request body').toResponse();
     }
-    return new ChatSDKError(
-      'bad_request:database',
-      'Failed to create context',
-    ).toResponse();
+    return new ChatSDKError('bad_request:database', 'Failed to create context').toResponse();
   }
 }

@@ -63,18 +63,97 @@ export function getStreamContext() {
 }
 
 /* Merge user-selected Contexts into system prompt */
+// function buildContextBlock(
+//   rows: Array<{ name: string; content: string }>,
+//   maxChars = 120_000,
+// ) {
+//   if (!rows.length) return '';
+//   const joined = rows
+//     .map((r) => `### Context: ${r.name}\n${r.content.trim()}`)
+//     .join('\n\n---\n\n');
+//   const clamped =
+//     joined.length > maxChars ? joined.slice(0, maxChars) + '\n\n…(truncated)\n' : joined;
+//   return ['[[CONTEXTUALIZE START]]', clamped, '[[CONTEXTUALIZE END]]'].join('\n\n');
+//}
+/* Merge user-selected Contexts into system prompt */
 function buildContextBlock(
   rows: Array<{ name: string; content: string }>,
   maxChars = 120_000,
 ) {
   if (!rows.length) return '';
-  const joined = rows
-    .map((r) => `### Context: ${r.name}\n${r.content.trim()}`)
-    .join('\n\n---\n\n');
+
+  const sanitizeTitle = (s: string) =>
+    s.replace(/^\s*(?:\*\*Title\*\*|#+)\s*/i, '').trim();
+
+  const renderOne = ({ name, content }: { name: string; content: string }) => {
+    let payload: any = null;
+    try {
+      payload = JSON.parse(content);
+    } catch {
+      payload = null;
+    }
+
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      typeof payload.title === 'string' &&
+      typeof payload.description === 'string' &&
+      Array.isArray(payload.background_goals) &&
+      Array.isArray(payload.tone_style) &&
+      Array.isArray(payload.constraints_scope) &&
+      Array.isArray(payload.example_prompts)
+    ) {
+      const lines: string[] = [];
+      lines.push(`### Context: ${sanitizeTitle(payload.title || name)}`);
+
+      if (payload.description) {
+        lines.push(`**Description:** ${payload.description.trim()}`);
+      }
+
+      if (payload.background_goals?.length) {
+        lines.push('\n**Background & Goals**');
+        for (const g of payload.background_goals.slice(0, 20)) {
+          if (typeof g === 'string' && g.trim()) lines.push(`- ${g.trim()}`);
+        }
+      }
+
+      if (payload.tone_style?.length) {
+        lines.push('\n**Tone & Style**');
+        for (const t of payload.tone_style.slice(0, 20)) {
+          if (typeof t === 'string' && t.trim()) lines.push(`- ${t.trim()}`);
+        }
+      }
+
+      if (payload.constraints_scope?.length) {
+        lines.push('\n**Constraints & Scope**');
+        for (const c of payload.constraints_scope.slice(0, 20)) {
+          if (typeof c === 'string' && c.trim()) lines.push(`- ${c.trim()}`);
+        }
+      }
+
+      if (payload.example_prompts?.length) {
+        lines.push('\n**Example Prompts**');
+        for (const ex of payload.example_prompts.slice(0, 10)) {
+          if (typeof ex === 'string' && ex.trim()) lines.push(`- "${ex.trim()}"`);
+        }
+      }
+
+      return lines.join('\n');
+    }
+
+    // Fallback: old/plain contexts
+    const title = sanitizeTitle(name);
+    const body = (content || '').trim();
+    return [`### Context: ${title}`, body].filter(Boolean).join('\n\n');
+  };
+
+  const joined = rows.map(renderOne).join('\n\n---\n\n');
   const clamped =
     joined.length > maxChars ? joined.slice(0, maxChars) + '\n\n…(truncated)\n' : joined;
+
   return ['[[CONTEXTUALIZE START]]', clamped, '[[CONTEXTUALIZE END]]'].join('\n\n');
 }
+
 
 /* Build a synthetic user message that *adds context to the query itself* */
 function buildInlineContextUserMessage(rows: Array<{ name: string; content: string }>) {

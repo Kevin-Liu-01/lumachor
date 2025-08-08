@@ -57,7 +57,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               <div className="text-indigo-600">
                 <LumachorMark />
               </div>
-              <span className="text-sm font-semibold tracking-wide">Lumachor</span>
+              {/* <span className="text-sm font-semibold tracking-wide">Chat</span> */}
             </Link>
 
             <Tooltip>

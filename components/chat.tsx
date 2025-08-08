@@ -22,6 +22,7 @@ import { useAutoResume } from '@/hooks/use-auto-resume';
 import { ChatSDKError } from '@/lib/errors';
 import type { Attachment, ChatMessage } from '@/lib/types';
 import { useDataStream } from './data-stream-provider';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -97,7 +98,7 @@ function unique<T>(arr: T[]): T[] {
 function TagInput({
   value,
   onChange,
-  placeholder = 'add a tag and press Enter',
+  placeholder = 'Add a tag and press Enter',
   disabled = false,
 }: {
   value: string[];
@@ -288,30 +289,47 @@ export function Chat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
       fetch: fetchWithErrorHandlers,
+      // replace your prepareSendMessagesRequest with this:
       prepareSendMessagesRequest: ({ messages, id, body }) => {
-        const currentId = selectedContextIdRef.current;
-        const selected = currentId ? (contexts.find((c) => c.id === currentId) || null) : null;
-        const contextIds = selected ? [selected.id] : [];
+        // 1) source of truth: the ref
+        const idFromRef = selectedContextIdRef.current;
+        const contextIds = idFromRef ? [idFromRef] : [];
 
+        // 2) optional pretties for logs (don't block sending)
+        let title: string | undefined;
+        if (idFromRef && contextsData?.contexts) {
+          const c = contextsData.contexts.find((x) => x.id === idFromRef);
+          if (c) title = cleanTitle(c.name);
+        }
+
+        // 3) debug
         console.log('[CTX → /api/chat] applying contexts', {
           chatId: id,
           count: contextIds.length,
           contextIds,
-          titles: selected ? [cleanTitle(selected.name)] : [],
-          structured: Boolean(selected && parseStructured(selected.content)),
+          titles: title ? [title] : [],
+          structured: Boolean(
+            idFromRef &&
+            contextsData?.contexts?.find((x) => x.id === idFromRef) &&
+            parseStructured(
+              (contextsData!.contexts!.find((x) => x.id === idFromRef) as any).content
+            )
+          ),
         });
 
+        // 4) payload
         return {
           body: {
             id,
             message: messages.at(-1),
             selectedChatModel: initialChatModel,
             selectedVisibilityType: visibilityType,
-            contextIds,
+            contextIds, // ← ALWAYS comes straight from the ref
             ...body,
           },
         };
       },
+
     }),
     onData: (dataPart) => setDataStream((ds) => (ds ? [...ds, dataPart] : [])),
     onFinish: () => mutate(unstable_serialize(getChatHistoryPaginationKey)),
@@ -370,127 +388,193 @@ const LumachorMark = () => (
   </svg>
 );
 
-const SelectedContextBar = () => (
-  <AnimatePresence>
-    {selectedContextId && (
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 8 }}
-        className="mx-auto mt-2 mb-1 md:my-0 px-4 w-full md:max-w-3xl"
-      >
-        {(() => {
-          const c = contexts.find((x) => x.id === selectedContextId);
-          if (!c) return null;
-          const structured = parseStructured(c.content);
-          const title = cleanTitle(structured?.title || c.name);
-          const desc = structured?.description || c.description || '';
-          const tags = c.tags || [];
+const [isContextExpanded, setIsContextExpanded] = useState(false);
 
-          return (
-            <div
-              className={cx(
-                'relative overflow-hidden rounded-2xl border px-3.5 py-3 md:px-4 md:py-3.5',
-                'bg-gradient-to-r from-indigo-500/[0.06] via-fuchsia-500/[0.06] to-pink-500/[0.06]',
-                'border-indigo-500/20'
-              )}
-            >
-              {/* Subtle glow */}
-              <div className="pointer-events-none absolute -right-20 -top-20 size-40 rounded-full bg-fuchsia-500/10 blur-3xl" />
-              <div className="pointer-events-none absolute -left-16 -bottom-16 size-40 rounded-full bg-indigo-500/10 blur-3xl" />
+const SelectedContextBar = () => {
+  const c = selectedContextId ? contexts.find((x) => x.id === selectedContextId) : null;
+  if (!c) return null;
 
-              <div className="flex items-start gap-3">
-                {/* Logo + rail */}
-                <div className="relative shrink-0">
-                  <div className="grid place-items-center rounded-xl border bg-background/60 backdrop-blur-sm p-1.5 md:p-2 text-indigo-600 border-indigo-500/30">
-                    <LumachorMark />
-                  </div>
+  const structured = parseStructured(c.content);
+  const title = cleanTitle(structured?.title || c.name);
+  const desc = structured?.description || c.description || '';
+  const tags = c.tags || [];
+
+  // Small helper for the compact pill text
+  const compactText = title || 'Context selected';
+
+  function normalizeGoals(goals: unknown): string[] {
+  if (Array.isArray(goals)) {
+    return goals.map((g) => String(g)).filter(Boolean);
+  }
+  if (typeof goals === 'string') {
+    // split bullet-y strings: •, -, *, newlines
+    return goals
+      .split(/\n|•|-|\*/g)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+  return (
+    <>
+      {/* Desktop: sticky pill under header */}
+      <AnimatePresence>
+        {selectedContextId && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className=" block sticky top-[4.5rem] z-30 px-4"
+          >
+            <div className="mx-auto w-full md:max-w-3xl">
+              {/* Pill */}
+              <div
+                className={cx(
+                  'group relative mx-auto flex items-center gap-2 rounded-full border px-3 py-1.5',
+                  'bg-background/80 backdrop-blur border-indigo-500/20',
+                  'shadow-sm hover:shadow transition'
+                )}
+              >
+                {/* Brand dot */}
+                <span className="inline-block size-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500" />
+                <button
+                  className="truncate text-xs md:text-sm font-medium text-foreground/90"
+                  onClick={() => setIsContextExpanded((v) => !v)}
+                  aria-expanded={isContextExpanded}
+                  aria-controls="context-card-desktop"
+                >
+                  {compactText}
+                </button>
+
+                {/* Tags (first 2 in pill) */}
+                <div className="ml-1 hidden md:flex gap-1">
+                  {tags.slice(0, 2).map((t) => (
+                    <Badge key={t} variant="outline" className="text-[10px]">
+                      #{t}
+                    </Badge>
+                  ))}
+                  {tags.length > 2 && (
+                    <Badge variant="outline" className="text-[10px] opacity-70">
+                      +{tags.length - 2}
+                    </Badge>
+                  )}
                 </div>
 
-                {/* Text block */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0">
-                      <div className="font-medium leading-tight truncate">
-                        {title}
-                      </div>
-                      {desc ? (
-                        <div className="text-xs opacity-80 mt-0.5 line-clamp-2">
-                          {desc}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="ml-auto flex items-center gap-1 shrink-0">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2"
-                            onClick={() => setContextDockOpen(true)}
-                          >
-                            <LibraryBig className="size-4 mr-1" />
-                            Change
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Change context</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="size-7"
-                            onClick={() => setSelectedContextIdSafe(null)}
-                            aria-label="Clear context"
-                          >
-                            <X className="size-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Clear</TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </div>
-
-                  {/* Tags */}
-                  {tags.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {tags.slice(0, 6).map((t) => (
-                        <Badge
-                          key={t}
-                          variant="outline"
-                          className="text-[10px] border-indigo-500/30"
-                        >
-                          #{t}
-                        </Badge>
-                      ))}
-                      {tags.length > 6 ? (
-                        <Badge variant="outline" className="text-[10px] opacity-70">
-                          +{tags.length - 6} more
-                        </Badge>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  {/* Optional: quick glance goals if structured */}
-                  {structured?.background_goals?.length ? (
-                    <div className="mt-2 text-[11px] opacity-80">
-                      <span className="font-medium">Goals:</span>{' '}
-                      {structured.background_goals.slice(0, 3).join(' • ')}
-                      {structured.background_goals.length > 3 ? '…' : ''}
-                    </div>
-                  ) : null}
+                {/* Right actions */}
+                <div className="ml-auto flex items-center gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-7"
+                    onClick={() => setIsContextExpanded((v) => !v)}
+                    aria-label={isContextExpanded ? 'Collapse context' : 'Expand context'}
+                  >
+                    {isContextExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-7"
+                    onClick={() => setContextDockOpen(true)}
+                    aria-label="Change context"
+                  >
+                    <LibraryBig className="size-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-7"
+                    onClick={() => setSelectedContextIdSafe(null)}
+                    aria-label="Clear context"
+                  >
+                    <X className="size-4" />
+                  </Button>
                 </div>
               </div>
+
+              {/* Expanded card */}
+            <AnimatePresence>
+  {isContextExpanded && (
+    <motion.div
+      id="context-card-desktop"
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      className={cx(
+        'relative mt-2 overflow-hidden rounded-2xl border',
+        'bg-gradient-to-r from-indigo-500/[0.06] via-fuchsia-500/[0.06] to-pink-500/[0.06]',
+        'border-indigo-500/20 backdrop-blur-sm shadow-sm'
+      )}
+    >
+      {/* ambient glow */}
+      <div className="pointer-events-none absolute -right-24 -top-24 size-48 rounded-full bg-fuchsia-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute -left-20 -bottom-20 size-48 rounded-full bg-indigo-500/10 blur-3xl" />
+
+      <div className="p-4 md:p-5">
+        {/* Header row — no title/summary repetition */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs uppercase tracking-wide opacity-60">Context details</span>
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-8"
+              onClick={() => setIsContextExpanded(false)}
+              aria-label="Collapse"
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* All tags (full list) */}
+        {tags?.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {tags.map((t) => (
+              <span
+                key={t}
+                className="inline-flex items-center rounded-md border border-indigo-500/30 px-2 py-[3px] text-[10px] leading-none"
+              >
+                #{t}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Long description */}
+        {desc && (
+          <p className="mt-3 text-xs md:text-sm leading-relaxed opacity-85">
+            {desc}
+          </p>
+        )}
+
+        {/* Background & Goals (bullet list) */}
+        {structured && normalizeGoals(structured.background_goals).length > 0 && (
+          <div className="mt-3">
+            <div className="text-xs font-medium opacity-80 mb-1.5">Background & Goals</div>
+            <ul className="list-disc pl-5 space-y-1.5 text-xs md:text-[13px] opacity-90">
+              {normalizeGoals(structured.background_goals).map((g, i) => (
+                <li key={i}>{g}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
+
             </div>
-          );
-        })()}
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+    
+    </>
+  );
+};
 
   /* ----------------------------- UI ------------------------------ */
 
@@ -504,7 +588,8 @@ const SelectedContextBar = () => (
           isReadonly={isReadonly}
           session={session}
           onOpenContexts={() => setContextDockOpen(true)}
-          selectedCount={selectedContextId ? 1 : 0}
+          //change to number of  contexts
+          selectedCount={contexts ? contexts.length : 0}
         />
 
         <SelectedContextBar />

@@ -27,16 +27,15 @@ import {
   type DBMessage,
   type Chat,
   stream,
+  // NEW: Context tables
+  context as ContextTable,
+  chatContext as ChatContextTable,
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import { generateUUID } from '../utils';
 import { generateHashedPassword } from './utils';
 import type { VisibilityType } from '@/components/visibility-selector';
 import { ChatSDKError } from '../errors';
-
-// Optionally, if not using email/pass login, you can
-// use the Drizzle adapter for Auth.js / NextAuth
-// https://authjs.dev/reference/adapter/drizzle
 
 // biome-ignore lint: Forbidden non-null assertion.
 const client = postgres(process.env.POSTGRES_URL!);
@@ -534,5 +533,55 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
       'bad_request:database',
       'Failed to get stream ids by chat id',
     );
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   CONTEXTUALIZE HELPERS
+   ────────────────────────────────────────────────────────────── */
+
+export async function getContextsByIds(ids: string[]) {
+  if (!ids.length) return [];
+  try {
+    return await db
+      .select({
+        id: ContextTable.id,
+        name: ContextTable.name,
+        content: ContextTable.content,
+      })
+      .from(ContextTable)
+      .where(inArray(ContextTable.id, ids));
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to load contexts');
+  }
+}
+
+export async function linkContextsToChat({
+  chatId,
+  contextIds,
+}: {
+  chatId: string;
+  contextIds: string[];
+}) {
+  if (!contextIds.length) return;
+  try {
+    const existing = await db
+      .select({
+        chatId: ChatContextTable.chatId,
+        contextId: ChatContextTable.contextId,
+      })
+      .from(ChatContextTable)
+      .where(inArray(ChatContextTable.contextId, contextIds));
+
+    const existingSet = new Set(existing.map((r) => `${r.chatId}:${r.contextId}`));
+    const toInsert = contextIds
+      .filter((cid) => !existingSet.has(`${chatId}:${cid}`))
+      .map((cid) => ({ chatId, contextId: cid, createdAt: new Date() }));
+
+    if (toInsert.length) {
+      await db.insert(ChatContextTable).values(toInsert);
+    }
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to link contexts to chat');
   }
 }

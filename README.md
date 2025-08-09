@@ -1,4 +1,3 @@
-````md
 <p align="center">
   <img alt="Lumachor mark" src="public/brand/lumachor-mark.svg" width="84" />
 </p>
@@ -121,7 +120,6 @@ CREATE TABLE conversations (
   created_at TIMESTAMP DEFAULT now()
 );
 ```
-````
 
 ### Core Endpoints
 

@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Lumachor mark" src="public/brand/lumachor-mark.svg" width="84" />
+  <img alt="Lumachor mark" src="public/images/lumachor.svg" width="84" />
 </p>
 
 <h1 align="center">Lumachor — Contextualize AI with Bulletproof Context</h1>
@@ -261,8 +261,6 @@ Thanks to the open-source prompt community for inspiration and research material
 
 MIT for template code unless otherwise noted. See repository LICENSE.
 
-````
-
 ---
 
 ### Included logo files (add these to your repo)
@@ -275,7 +273,7 @@ MIT for template code unless otherwise noted. See repository LICENSE.
   <path d="M8 18c0-4.418 3.582-8 8-8 2.8 0 5.26 1.46 6.67 3.66.2.3.06.7-.26.86l-2.22 1.1a.66.66 0 0 1-.84-.23A5.33 5.33 0 0 0 16 13.33c-2.95 0-5.33 2.38-5.33 5.34V22c0 .37-.3.67-.67.67H8.67A.67.67 0 0 1 8 22v-4Z" fill="currentColor" opacity="0.85"/>
   <circle cx="22.5" cy="21" r="2.5" fill="#C7D2FE" opacity="0.75"/>
 </svg>
-````
+```
 
 **`public/brand/lumachor-mark-bw.svg`** (monochrome)
 

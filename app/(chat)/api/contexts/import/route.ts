@@ -5,7 +5,7 @@ import { auth } from '@/app/(auth)/auth';
 import { ChatSDKError } from '@/lib/errors';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { and, eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { context as Context, publicContext as PublicContext } from '@/lib/db/schema';
 
 function getDb() {
@@ -27,15 +27,15 @@ export async function POST(req: Request) {
     const body = ImportBody.parse(await req.json());
     const db = getDb();
 
-    // Locate public entry
+    // public entry
     const [pub] = await db.select().from(PublicContext).where(eq(PublicContext.id, body.publicId)).limit(1);
     if (!pub) return new ChatSDKError('bad_request:api', 'Public context not found').toResponse();
 
-    // Load original context
+    // source context
     const [src] = await db.select().from(Context).where(eq(Context.id, pub.contextId)).limit(1);
     if (!src) return new ChatSDKError('bad_request:api', 'Source context missing').toResponse();
 
-    // Duplicate into user's library
+    // duplicate into user's library
     const [row] = await db.insert(Context).values({
       id: crypto.randomUUID(),
       name: src.name,

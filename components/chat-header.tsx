@@ -14,25 +14,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useSidebar } from '@/components/ui/sidebar';
 import { type VisibilityType, VisibilitySelector } from '@/components/visibility-selector';
 import type { Session } from 'next-auth';
+import LumachorMark from './lumachormark';
 
-/* ------------------------- Lumachor mark ------------------------- */
-function LumachorMark() {
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" className="size-7">
-      <rect rx="8" ry="8" x="2" y="2" width="28" height="28" fill="currentColor" opacity="0.15" />
-      <path
-        d="M8 18c0-4.418 3.582-8 8-8 2.8 0 5.26 1.46 6.67 3.66.2.3.06.7-.26.86l-2.22 1.1a.66.66 0 0 1-.84-.23A5.33 5.33 0 0 0 16 13.33c-2.95 0-5.33 2.38-5.33 5.34V22c0 .37-.3.67-.67.67H8.67A.67.67 0 0 1 8 22v-4Z"
-        fill="currentColor"
-        opacity="0.85"
-      />
-      <circle cx="22.5" cy="21" r="2.5" fill="currentColor" />
-    </svg>
-  );
-}
 
 function LumachorLogo() {
   return (
-    <div className="flex items-center gap-2 mr-4">
+    <div className="sm:hidden flex items-center gap-2 mr-4">
       <div className="text-indigo-600">
         <LumachorMark />
       </div>
@@ -82,7 +69,7 @@ function PureChatHeader({
       <div className="w-full px-2 md:px-3">
         <div className="flex items-center gap-2 py-2">
           {/* <SidebarToggle /> */}
-          {/* <LumachorLogo /> */}
+          <LumachorLogo />
 
         
           {/* Middle rail: model + visibility (hidden when readonly) */}

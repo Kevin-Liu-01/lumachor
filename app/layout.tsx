@@ -8,8 +8,8 @@ import { SessionProvider } from 'next-auth/react';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://chat.vercel.ai'),
-  title: 'Next.js Chatbot Template',
-  description: 'Next.js chatbot template using the AI SDK.',
+  title: 'Lumachor - Contextualize AI with Bulletproof Context',
+  description: 'Lumachor is an AI chat application that allows you to create, manage, and share context-rich conversations with AI models. It provides a user-friendly interface for interacting with AI, managing context, and sharing insights.',
 };
 
 export const viewport = {

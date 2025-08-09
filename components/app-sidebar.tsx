@@ -26,23 +26,7 @@ import { PlusIcon } from '@/components/icons'; // SearchIcon should exist in you
 import { PanelLeftClose, PanelLeftOpen, SearchIcon, LibraryBigIcon } from 'lucide-react'; // for collapse/expand
 import cx from 'classnames';
 import { is } from 'drizzle-orm';
-
-/* ------------------------ Lumachor mark ------------------------ */
-function LumachorMark() {
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" className="size-7">
-      {/* BG tile (indigo-500 @ 0.10) */}
-      <rect rx="8" ry="8" x="2" y="2" width="28" height="28" fill="#6366F1" opacity="0.10" />
-      {/* Shell / swirl (indigo-600 @ 0.84) */}
-      <path
-        d="M8 18c0-4.418 3.582-8 8-8 2.8 0 5.26 1.46 6.67 3.66.2.3.06.7-.26.86l-2.22 1.1a.66.66 0 0 1-.84-.23A5.33 5.33 0 0 0 16 13.33c-2.95 0-5.33 2.38-5.33 5.34V22c0 .37-.3.67-.67.67H8.67A.67.67 0 0 1 8 22v-4Z"
-        fill="#4F46E5" opacity="0.84"
-      />
-      {/* Accent dot (indigo-100 @ 0.65) */}
-      <circle cx="22.5" cy="21" r="2.5" fill="#E0E7FF" opacity="0.65" />
-    </svg>
-  );
-}
+import LumachorMark from './lumachormark';
 
 /* --------------------------- App Sidebar --------------------------- */
 

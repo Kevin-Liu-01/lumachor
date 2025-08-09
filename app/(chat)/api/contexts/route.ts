@@ -1,4 +1,3 @@
-// app/api/contexts/route.ts
 import 'server-only';
 
 import { NextResponse } from 'next/server';
@@ -44,6 +43,12 @@ async function ensureUser(
   return created;
 }
 
+function truthyParam(v: string | null) {
+  if (!v) return false;
+  const s = v.toLowerCase();
+  return s === '1' || s === 'true' || s === 'yes';
+}
+
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -52,8 +57,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get('q') || '').trim();
     const tag = (searchParams.get('tag') || '').trim();
-    const mine = searchParams.get('mine') === 'true';
-    const withMeta = searchParams.get('withMeta') === '1';
+    const mine = truthyParam(searchParams.get('mine'));
+    const starred = truthyParam(searchParams.get('starred'));
+    const withMeta = truthyParam(searchParams.get('withMeta')) || searchParams.get('withMeta') === '1';
 
     const db = getDb();
 
@@ -65,7 +71,8 @@ export async function GET(req: Request) {
     if (tag) {
       conds.push(sql`${tag} = ANY(${ContextTable.tags})`);
     }
-    if (mine && session.user.id) {
+    // enforce owner scoping
+    if (mine || starred) {
       conds.push(eq(ContextTable.createdBy, session.user.id as string));
     }
 
@@ -74,17 +81,17 @@ export async function GET(req: Request) {
       .from(ContextTable)
       .where(conds.length ? and(...conds) : undefined)
       .orderBy(desc(ContextTable.createdAt))
-      .limit(50);
+      .limit(200);
 
     if (!withMeta) {
+      // Rare in your app, but keep behavior intact.
       return NextResponse.json({ contexts: rows as Context[] });
     }
 
-    // withMeta: annotate liked + owner for the current user
+    // annotate liked + owner for the current user
     const ids = rows.map((r) => r.id);
     let likedSet = new Set<string>();
     if (ids.length) {
-      // Works regardless of TEXT vs UUID in your context_star schema.
       const stars = await db
         .select()
         .from(ContextStar)
@@ -95,11 +102,16 @@ export async function GET(req: Request) {
       likedSet = new Set(stars.map((s) => s.contextId));
     }
 
-    const out = rows.map((r) => ({
+    let out = rows.map((r) => ({
       ...r,
       liked: likedSet.has(r.id),
       owner: r.createdBy === (session.user.id as string),
     }));
+
+    // Starred scope: only contexts you own AND you have starred
+    if (starred) {
+      out = out.filter((r) => r.owner && r.liked);
+    }
 
     return NextResponse.json({ contexts: out });
   } catch (e) {

@@ -1,4 +1,4 @@
-// app/api/contexts/[id]/route.ts
+// app/(chat)/api/contexts/[id]/route.ts
 import 'server-only';
 import { NextResponse } from 'next/server';
 import { auth } from '@/app/(auth)/auth';
@@ -16,20 +16,19 @@ function getDb() {
   return drizzle(client);
 }
 
+// Common type for the context arg (params is async in newer Next versions)
+type RouteCtx = { params: Promise<{ id: string }> };
+
 // Toggle like (star/unstar)
-export async function PATCH(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(_req: Request, ctx: RouteCtx) {
   try {
     const session = await auth();
     if (!session?.user?.id) return new ChatSDKError('unauthorized:chat').toResponse();
 
+    const { id: contextId } = await ctx.params; // ← await params
     const db = getDb();
     const userId = session.user.id as string;
-    const contextId = params.id;
 
-    // check existing star
     const [existing] = await db
       .select()
       .from(ContextStar)
@@ -54,20 +53,18 @@ export async function PATCH(
 }
 
 // Delete a context you own
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: Request, ctx: RouteCtx) {
   try {
     const session = await auth();
     if (!session?.user?.id) return new ChatSDKError('unauthorized:chat').toResponse();
 
+    const { id } = await ctx.params; // ← await params
     const db = getDb();
     const userId = session.user.id as string;
 
     const result = await db
       .delete(ContextTable)
-      .where(and(eq(ContextTable.id, params.id), eq(ContextTable.createdBy, userId)))
+      .where(and(eq(ContextTable.id, id), eq(ContextTable.createdBy, userId)))
       .returning();
 
     const deleted = result.length > 0;

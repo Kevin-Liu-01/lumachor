@@ -30,7 +30,7 @@ import type { VisibilityType } from './visibility-selector';
 import type { Attachment, ChatMessage } from '@/lib/types';
 import type { ContextRow } from './context-selected-bar';
 
-/* --- tiny inline toggle --- */
+/* ---------- tiny inline toggle ---------- */
 function MiniToggle({
   checked,
   onChange,
@@ -169,12 +169,12 @@ function PureMultimodalInput({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
-  
 
   /* height */
   useEffect(() => {
     if (textareaRef.current) {
-      adjustHeight();
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight + 2}px`;
     }
   }, []);
   const adjustHeight = () => {
@@ -228,96 +228,100 @@ function PureMultimodalInput({
   /* avoid re-gen loop before SWR settles */
   const [justInstalledContextId, setJustInstalledContextId] = useState<string | null>(null);
 
-  // NEW: keep a handle to cancel /generate
-const generateAbortRef = useRef<AbortController | null>(null);
-
-const cancelGenerate = useCallback(() => {
-  const ac = generateAbortRef.current;
-  if (ac) {
-    ac.abort();
-    generateAbortRef.current = null;
-    setPill('Canceled', 1200, false);
-    setPillBusy(false);
-  }
-}, [setPill]);
-
-const ensureContextFromPrompt = useCallback(
-  async (userText: string) => {
-    if (selectedContext || justInstalledContextId) return selectedContext ?? null;
-
-    try {
-      setPill('Generating context…', 0, true);
-
-      // NEW: AbortController
-      const ac = new AbortController();
-      generateAbortRef.current = ac;
-
-      const res = await fetch('/api/contexts/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        credentials: 'include',
-        cache: 'no-store',
-        signal: ac.signal, // ← important
-        body: JSON.stringify({
-          userPrompt: userText || 'General assistant for this chat',
-          tags: [],
-          model: 'chat-model',
-        }),
-      });
-
-      if (!res.ok) {
-        let errBody: any = null;
-        try { errBody = await res.json(); } catch {}
-        const msg = errBody?.message || (res.status === 401 ? 'Please sign in to generate a context.' : 'Failed to generate context');
-        toast.error(msg);
-        setPill('Context generation failed — you can still chat without one', 3500, false);
-        return null;
-      }
-
-      const j = await res.json();
-      const created: ContextRow | undefined = j?.context;
-      if (!created?.id) {
-        toast.error('Context created but response missing id');
-        setPill('Context created but response missing id', 3500, false);
-        return null;
-      }
-
-      setSelectedContextId(created.id);
-      setJustInstalledContextId(created.id);
-      void reloadContexts?.();
-
-      setPill(`Context “${stripTitle(created.name)}” installed — press send to chat`, 2600, false);
-      return created;
-    } catch (e: any) {
-      if (e?.name === 'AbortError') {
-        // canceled on purpose
-        return null;
-      }
-      console.error('[contexts.generate] client error:', e);
-      toast.error(e?.message || 'Failed to generate context');
-      setPill('Context generation failed — you can still chat without one', 3500, false);
-      return null;
-    } finally {
-      generateAbortRef.current = null; // NEW: clear handle
+  /* cancelable generate */
+  const generateAbortRef = useRef<AbortController | null>(null);
+  const cancelGenerate = useCallback(() => {
+    const ac = generateAbortRef.current;
+    if (ac) {
+      ac.abort();
+      generateAbortRef.current = null;
+      setPill('Canceled', 1200, false);
       setPillBusy(false);
     }
-  },
-  [selectedContext, justInstalledContextId, setSelectedContextId, reloadContexts, setPill],
-);
+  }, [setPill]);
 
+  const ensureContextFromPrompt = useCallback(
+    async (userText: string) => {
+      if (selectedContext || justInstalledContextId) return selectedContext ?? null;
 
+      try {
+        setPill('Generating context…', 0, true);
+
+        const ac = new AbortController();
+        generateAbortRef.current = ac;
+
+        const res = await fetch('/api/contexts/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          credentials: 'include',
+          cache: 'no-store',
+          signal: ac.signal,
+          body: JSON.stringify({
+            userPrompt: userText || 'General assistant for this chat',
+            tags: [],
+            model: 'chat-model',
+          }),
+        });
+
+        if (!res.ok) {
+          let errBody: any = null;
+          try {
+            errBody = await res.json();
+          } catch {}
+          const msg =
+            errBody?.message ||
+            (res.status === 401 ? 'Please sign in to generate a context.' : 'Failed to generate context');
+          toast.error(msg);
+          setPill('Context generation failed — you can still chat without one', 3500, false);
+          return null;
+        }
+
+        const j = await res.json();
+        const created: ContextRow | undefined = j?.context;
+        if (!created?.id) {
+          toast.error('Context created but response missing id');
+          setPill('Context created but response missing id', 3500, false);
+          return null;
+        }
+
+        setSelectedContextId(created.id);
+        setJustInstalledContextId(created.id);
+        void reloadContexts?.();
+
+        setPill(`Context “${stripTitle(created.name)}” installed — press send to chat`, 2600, false);
+        return created;
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return null;
+        console.error('[contexts.generate] client error:', e);
+        toast.error(e?.message || 'Failed to generate context');
+        setPill('Context generation failed — you can still chat without one', 3500, false);
+        return null;
+      } finally {
+        generateAbortRef.current = null;
+        setPillBusy(false);
+      }
+    },
+    [selectedContext, justInstalledContextId, setSelectedContextId, reloadContexts, setPill],
+  );
+
+  /* send: DO NOT start chat when generating context on empty thread */
   const submitForm = useCallback(() => {
     if (pillBusy) return; // hard block while generating
 
-    window.history.replaceState({}, '', `/chat/${chatId}`);
-
     const userMsgCount = (messages || []).filter((m) => m.role === 'user').length;
-
     const hasContextNow = !!(selectedContext || justInstalledContextId);
+
+    // First "send" on an empty chat: generate context only, do NOT send, do NOT change URL
     if (!hasContextNow && autoContextOnFirst && userMsgCount === 0) {
       void ensureContextFromPrompt(input);
       return;
     }
+
+    // Actually sending now → safe to tag the URL as a chat
+    window.history.replaceState({}, '', `/chat/${chatId}`);
 
     sendMessage({
       role: 'user',
@@ -460,7 +464,7 @@ const ensureContextFromPrompt = useCallback(
         tabIndex={-1}
       />
 
-       {/* attachments preview */}
+      {/* attachments preview */}
       {(attachments.length > 0 || uploadQueue.length > 0) && (
         <div data-testid="attachments-preview" className="flex flex-row gap-2 overflow-x-scroll items-end">
           {attachments.map((a) => (
@@ -477,11 +481,8 @@ const ensureContextFromPrompt = useCallback(
         <div
           className={cx(
             'relative flex items-center gap-2 rounded-full px-3 py-1.5 shadow-sm',
-            // distinct treatment from other pills:
             'bg-background/90 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md',
-            pillBusy
-              ? 'border border-indigo-400/40 ring-1 ring-indigo-400/30'
-              : 'border border-indigo-500/20',
+            pillBusy ? 'border border-indigo-400/40 ring-1 ring-indigo-400/30' : 'border border-indigo-500/20',
           )}
           aria-busy={pillBusy}
           data-busy={pillBusy ? 'true' : 'false'}
@@ -489,11 +490,11 @@ const ensureContextFromPrompt = useCallback(
           {/* glow ring */}
           <GlowHalo show={pillBusy} />
 
-          {/* gradient dot + subtle spin when busy */}
+          {/* gradient dot + spinner when busy */}
           <span
             className={cx(
               'inline-grid place-items-center size-3 rounded-full',
-              pillBusy ? 'bg-gradient-to-r from-indigo-500 to-fuchsia-500 animate-pulse' : 'bg-gradient-to-r from-indigo-500 to-fuchsia-500',
+              'bg-gradient-to-r from-indigo-500 to-fuchsia-500',
             )}
           >
             {pillBusy && <Spinner className="text-white/95" />}
@@ -525,14 +526,17 @@ const ensureContextFromPrompt = useCallback(
                 />
               </>
             )}
-             {pillBusy && (
+            {pillBusy && (
               <button
                 type="button"
-                onClick={(e) => { e.preventDefault(); cancelGenerate(); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  cancelGenerate();
+                }}
                 className={cx(
                   'text-[11px] px-2 py-1 rounded-full border transition-colors',
                   'border-red-500/40 text-red-600/90 hover:bg-red-500/10',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40'
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40',
                 )}
                 aria-label="Cancel generating context"
               >
@@ -559,69 +563,67 @@ const ensureContextFromPrompt = useCallback(
 
       {/* textarea + controls */}
       <div className="relative">
-  {/* shimmer overlay while busy (CLIPPED) */}
-  {pillBusy && (
-    <motion.div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 rounded-2xl overflow-hidden" // ← keeps it inside
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.15 }}
-    >
-      <motion.div
-        className="absolute inset-y-0 w-1/2 rounded-2xl bg-gradient-to-r
-                   from-transparent via-white/10 to-transparent dark:via-white/5"
-        // start just outside the left edge; slide to right edge
-        initial={{ left: '-55%' }}
-        animate={{ left: ['-55%', '105%'] }}
-        transition={{ duration: 1.4, ease: 'linear', repeat: Infinity }}
-      />
-    </motion.div>
-  )}
+        {/* shimmer overlay while busy (CLIPPED) */}
+        {pillBusy && (
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-2xl overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.15 }}
+          >
+            <motion.div
+              className="absolute inset-y-0 w-1/2 rounded-2xl bg-gradient-to-r from-transparent via-white/10 to-transparent dark:via-white/5"
+              initial={{ left: '-55%' }}
+              animate={{ left: ['-55%', '105%'] }}
+              transition={{ duration: 1.4, ease: 'linear', repeat: Infinity }}
+            />
+          </motion.div>
+        )}
 
-  <Textarea
-    data-testid="multimodal-input"
-    ref={textareaRef}
-    placeholder="Send a message..."
-    value={input}
-    onChange={handleInput}
-    className={cx(
-      'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base bg-muted pb-10 dark:border-zinc-700',
-      pillBusy && 'opacity-95 cursor-wait',
-      className,
-    )}
-    rows={2}
-    autoFocus
-    onKeyDown={(event) => {
-      if (pillBusy) {
-        event.preventDefault(); // block Enter while generating
-        return;
-      }
-      if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-        event.preventDefault();
-        if (status !== 'ready') {
-          toast.error('Please wait for the model to finish its response!');
-        } else {
-          submitForm();
-        }
-      }
-    }}
-    disabled={pillBusy}
-    aria-busy={pillBusy}
-  />
+        <Textarea
+          data-testid="multimodal-input"
+          ref={textareaRef}
+          placeholder="Send a message..."
+          value={input}
+          onChange={handleInput}
+          className={cx(
+            'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base bg-muted pb-10 dark:border-zinc-700',
+            pillBusy && 'opacity-95 cursor-wait',
+            className,
+          )}
+          rows={2}
+          autoFocus
+          onKeyDown={(event) => {
+            if (pillBusy) {
+              event.preventDefault(); // block Enter while generating
+              return;
+            }
+            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              if (status !== 'ready') {
+                toast.error('Please wait for the model to finish its response!');
+              } else {
+                submitForm();
+              }
+            }
+          }}
+          disabled={pillBusy}
+          aria-busy={pillBusy}
+        />
 
-  <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start">
-    <AttachmentsButton fileInputRef={fileInputRef} status={status} />
-  </div>
+        <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start">
+          <AttachmentsButton fileInputRef={fileInputRef} status={status} />
+        </div>
 
-  <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
-    {status === 'submitted' ? (
-      <StopButton stop={stop} setMessages={setMessages} />
-    ) : (
-      <SendButton input={input} uploadQueue={uploadQueue} submitForm={submitForm} pillBusy={pillBusy} />
-    )}
-  </div>
-</div>
+        <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
+          {status === 'submitted' ? (
+            <StopButton stop={stop} setMessages={setMessages} />
+          ) : (
+            <SendButton input={input} uploadQueue={uploadQueue} submitForm={submitForm} pillBusy={pillBusy} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -699,47 +701,42 @@ function PureSendButton({
 }) {
   const disabled = pillBusy || input.length === 0 || uploadQueue.length > 0;
   return (
-  <Button
-  data-testid="send-button"
-  className={cx(
-    'rounded-full p-1.5 h-fit border dark:border-zinc-600 relative overflow-hidden', // ← overflow-hidden
-    disabled && 'cursor-not-allowed'
-  )}
-  onClick={(e) => {
-    e.preventDefault();
-    if (!pillBusy) submitForm();
-  }}
-  disabled={disabled}
-  aria-busy={pillBusy}
-  aria-live="polite"
->
-  {pillBusy ? (
-    <span className="flex items-center gap-1.5 px-1.5">
-      <Spinner />
-      <span className="text-[11px]">Generating…</span>
-    </span>
-  ) : (
-    <ArrowUpIcon size={14} />
-  )}
-
-  {/* top shimmer loader (properly clipped & aligned to top edge) */}
-  {pillBusy && (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute inset-x-0 -top-px h-[2px]" // ← align to the outer top edge
+    <Button
+      data-testid="send-button"
+      className={cx(
+        'rounded-full p-1.5 h-fit border dark:border-zinc-600 relative overflow-hidden',
+        disabled && 'cursor-not-allowed',
+      )}
+      onClick={(e) => {
+        e.preventDefault();
+        if (!pillBusy) submitForm();
+      }}
+      disabled={disabled}
+      aria-busy={pillBusy}
+      aria-live="polite"
     >
-      <motion.span
-        className="absolute top-0 h-[2px] w-[45%] rounded-full
-                   bg-gradient-to-r from-transparent via-fuchsia-500 to-transparent"
-        style={{ filter: 'drop-shadow(0 0 6px rgba(217,70,239,.35))' }}
-        initial={{ x: '-50%' }}
-        animate={{ x: ['-50%', '110%'] }}
-        transition={{ duration: 1.1, ease: 'linear', repeat: Infinity }}
-      />
-    </span>
-  )}
-</Button>
+      {pillBusy ? (
+        <span className="flex items-center gap-1.5 px-1.5">
+          <Spinner />
+          <span className="text-[11px]">Generating…</span>
+        </span>
+      ) : (
+        <ArrowUpIcon size={14} />
+      )}
 
+      {/* top shimmer loader (properly clipped & aligned to top edge) */}
+      {pillBusy && (
+        <span aria-hidden className="pointer-events-none absolute inset-x-0 -top-px h-[2px]">
+          <motion.span
+            className="absolute top-0 h-[2px] w-[45%] rounded-full bg-gradient-to-r from-transparent via-fuchsia-500 to-transparent"
+            style={{ filter: 'drop-shadow(0 0 6px rgba(217,70,239,.35))' }}
+            initial={{ x: '-50%' }}
+            animate={{ x: ['-50%', '110%'] }}
+            transition={{ duration: 1.1, ease: 'linear', repeat: Infinity }}
+          />
+        </span>
+      )}
+    </Button>
   );
 }
 const SendButton = memo(PureSendButton, (prev, next) => {

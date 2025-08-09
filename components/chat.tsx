@@ -242,6 +242,11 @@ export function Chat({
         votes={undefined}
         isReadonly={isReadonly}
         selectedVisibilityType={visibilityType}
+         /* Hand off just enough for auto-context + pill */
+              selectedContext={selectedContext}
+              setSelectedContextId={setSelectedContextIdSafe}
+              reloadContexts={() => reloadContexts?.()}
+              onOpenContexts={() => setContextDockOpen(true)}
       />
 
       <ContextLibraryDock

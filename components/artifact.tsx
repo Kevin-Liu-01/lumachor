@@ -1,3 +1,5 @@
+'use client';
+
 import { formatDistance } from 'date-fns';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -28,13 +30,9 @@ import equal from 'fast-deep-equal';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import type { VisibilityType } from './visibility-selector';
 import type { Attachment, ChatMessage } from '@/lib/types';
+import type { ContextRow } from './context-selected-bar';
 
-export const artifactDefinitions = [
-  textArtifact,
-  codeArtifact,
-  imageArtifact,
-  sheetArtifact,
-];
+export const artifactDefinitions = [textArtifact, codeArtifact, imageArtifact, sheetArtifact];
 export type ArtifactKind = (typeof artifactDefinitions)[number]['kind'];
 
 export interface UIArtifact {
@@ -44,12 +42,7 @@ export interface UIArtifact {
   content: string;
   isVisible: boolean;
   status: 'streaming' | 'idle';
-  boundingBox: {
-    top: number;
-    left: number;
-    width: number;
-    height: number;
-  };
+  boundingBox: { top: number; left: number; width: number; height: number };
 }
 
 function PureArtifact({
@@ -67,6 +60,12 @@ function PureArtifact({
   votes,
   isReadonly,
   selectedVisibilityType,
+
+  // NEW: context props passed directly from Chat
+  selectedContext,
+  setSelectedContextId,
+  reloadContexts,
+  onOpenContexts,
 }: {
   chatId: string;
   input: string;
@@ -82,6 +81,11 @@ function PureArtifact({
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
   isReadonly: boolean;
   selectedVisibilityType: VisibilityType;
+
+  selectedContext: ContextRow | null;
+  setSelectedContextId: (id: string | null) => void;
+  reloadContexts?: () => Promise<any> | void;
+  onOpenContexts: () => void;
 }) {
   const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
 
@@ -105,7 +109,6 @@ function PureArtifact({
   useEffect(() => {
     if (documents && documents.length > 0) {
       const mostRecentDocument = documents.at(-1);
-
       if (mostRecentDocument) {
         setDocument(mostRecentDocument);
         setCurrentVersionIndex(documents.length - 1);
@@ -134,7 +137,6 @@ function PureArtifact({
           if (!currentDocuments) return undefined;
 
           const currentDocument = currentDocuments.at(-1);
-
           if (!currentDocument || !currentDocument.content) {
             setIsContentDirty(false);
             return currentDocuments;
@@ -168,21 +170,14 @@ function PureArtifact({
     [artifact, mutate],
   );
 
-  const debouncedHandleContentChange = useDebounceCallback(
-    handleContentChange,
-    2000,
-  );
+  const debouncedHandleContentChange = useDebounceCallback(handleContentChange, 2000);
 
   const saveContent = useCallback(
     (updatedContent: string, debounce: boolean) => {
       if (document && updatedContent !== document.content) {
         setIsContentDirty(true);
-
-        if (debounce) {
-          debouncedHandleContentChange(updatedContent);
-        } else {
-          handleContentChange(updatedContent);
-        }
+        if (debounce) debouncedHandleContentChange(updatedContent);
+        else handleContentChange(updatedContent);
       }
     },
     [document, debouncedHandleContentChange, handleContentChange],
@@ -196,34 +191,19 @@ function PureArtifact({
 
   const handleVersionChange = (type: 'next' | 'prev' | 'toggle' | 'latest') => {
     if (!documents) return;
-
     if (type === 'latest') {
       setCurrentVersionIndex(documents.length - 1);
       setMode('edit');
-    }
-
-    if (type === 'toggle') {
-      setMode((mode) => (mode === 'edit' ? 'diff' : 'edit'));
-    }
-
-    if (type === 'prev') {
-      if (currentVersionIndex > 0) {
-        setCurrentVersionIndex((index) => index - 1);
-      }
+    } else if (type === 'toggle') {
+      setMode((m) => (m === 'edit' ? 'diff' : 'edit'));
+    } else if (type === 'prev') {
+      if (currentVersionIndex > 0) setCurrentVersionIndex((i) => i - 1);
     } else if (type === 'next') {
-      if (currentVersionIndex < documents.length - 1) {
-        setCurrentVersionIndex((index) => index + 1);
-      }
+      if (currentVersionIndex < documents.length - 1) setCurrentVersionIndex((i) => i + 1);
     }
   };
 
   const [isToolbarVisible, setIsToolbarVisible] = useState(false);
-
-  /*
-   * NOTE: if there are no documents, or if
-   * the documents are being fetched, then
-   * we mark it as the current version.
-   */
 
   const isCurrentVersion =
     documents && documents.length > 0
@@ -233,21 +213,13 @@ function PureArtifact({
   const { width: windowWidth, height: windowHeight } = useWindowSize();
   const isMobile = windowWidth ? windowWidth < 768 : false;
 
-  const artifactDefinition = artifactDefinitions.find(
-    (definition) => definition.kind === artifact.kind,
-  );
-
-  if (!artifactDefinition) {
-    throw new Error('Artifact definition not found!');
-  }
+  const artifactDefinition = artifactDefinitions.find((d) => d.kind === artifact.kind);
+  if (!artifactDefinition) throw new Error('Artifact definition not found!');
 
   useEffect(() => {
     if (artifact.documentId !== 'init') {
       if (artifactDefinition.initialize) {
-        artifactDefinition.initialize({
-          documentId: artifact.documentId,
-          setMetadata,
-        });
+        artifactDefinition.initialize({ documentId: artifact.documentId, setMetadata });
       }
     }
   }, [artifact.documentId, artifactDefinition, setMetadata]);
@@ -265,15 +237,9 @@ function PureArtifact({
           {!isMobile && (
             <motion.div
               className="fixed bg-background h-dvh"
-              initial={{
-                width: isSidebarOpen ? windowWidth - 256 : windowWidth,
-                right: 0,
-              }}
+              initial={{ width: isSidebarOpen ? windowWidth - 256 : windowWidth, right: 0 }}
               animate={{ width: windowWidth, right: 0 }}
-              exit={{
-                width: isSidebarOpen ? windowWidth - 256 : windowWidth,
-                right: 0,
-              }}
+              exit={{ width: isSidebarOpen ? windowWidth - 256 : windowWidth, right: 0 }}
             />
           )}
 
@@ -285,19 +251,9 @@ function PureArtifact({
                 opacity: 1,
                 x: 0,
                 scale: 1,
-                transition: {
-                  delay: 0.2,
-                  type: 'spring',
-                  stiffness: 200,
-                  damping: 30,
-                },
+                transition: { delay: 0.2, type: 'spring', stiffness: 200, damping: 30 },
               }}
-              exit={{
-                opacity: 0,
-                x: 0,
-                scale: 1,
-                transition: { duration: 0 },
-              }}
+              exit={{ opacity: 0, x: 0, scale: 1, transition: { duration: 0 } }}
             >
               <AnimatePresence>
                 {!isCurrentVersion && (
@@ -332,10 +288,15 @@ function PureArtifact({
                     attachments={attachments}
                     setAttachments={setAttachments}
                     messages={messages}
+                    setMessages={setMessages}
                     sendMessage={sendMessage}
                     className="bg-background dark:bg-muted"
-                    setMessages={setMessages}
                     selectedVisibilityType={selectedVisibilityType}
+                    /* pass context controls straight through */
+                    selectedContext={selectedContext}
+                    setSelectedContextId={setSelectedContextId}
+                    reloadContexts={reloadContexts}
+                    onOpenContexts={onOpenContexts}
                   />
                 </form>
               </div>
@@ -346,68 +307,15 @@ function PureArtifact({
             className="fixed dark:bg-muted bg-background h-dvh flex flex-col overflow-y-scroll md:border-l dark:border-zinc-700 border-zinc-200"
             initial={
               isMobile
-                ? {
-                    opacity: 1,
-                    x: artifact.boundingBox.left,
-                    y: artifact.boundingBox.top,
-                    height: artifact.boundingBox.height,
-                    width: artifact.boundingBox.width,
-                    borderRadius: 50,
-                  }
-                : {
-                    opacity: 1,
-                    x: artifact.boundingBox.left,
-                    y: artifact.boundingBox.top,
-                    height: artifact.boundingBox.height,
-                    width: artifact.boundingBox.width,
-                    borderRadius: 50,
-                  }
+                ? { opacity: 1, x: artifact.boundingBox.left, y: artifact.boundingBox.top, height: artifact.boundingBox.height, width: artifact.boundingBox.width, borderRadius: 50 }
+                : { opacity: 1, x: artifact.boundingBox.left, y: artifact.boundingBox.top, height: artifact.boundingBox.height, width: artifact.boundingBox.width, borderRadius: 50 }
             }
             animate={
               isMobile
-                ? {
-                    opacity: 1,
-                    x: 0,
-                    y: 0,
-                    height: windowHeight,
-                    width: windowWidth ? windowWidth : 'calc(100dvw)',
-                    borderRadius: 0,
-                    transition: {
-                      delay: 0,
-                      type: 'spring',
-                      stiffness: 200,
-                      damping: 30,
-                      duration: 5000,
-                    },
-                  }
-                : {
-                    opacity: 1,
-                    x: 400,
-                    y: 0,
-                    height: windowHeight,
-                    width: windowWidth
-                      ? windowWidth - 400
-                      : 'calc(100dvw-400px)',
-                    borderRadius: 0,
-                    transition: {
-                      delay: 0,
-                      type: 'spring',
-                      stiffness: 200,
-                      damping: 30,
-                      duration: 5000,
-                    },
-                  }
+                ? { opacity: 1, x: 0, y: 0, height: windowHeight, width: windowWidth ?? 'calc(100dvw)', borderRadius: 0, transition: { delay: 0, type: 'spring', stiffness: 200, damping: 30, duration: 5000 } }
+                : { opacity: 1, x: 400, y: 0, height: windowHeight, width: windowWidth ? windowWidth - 400 : 'calc(100dvw-400px)', borderRadius: 0, transition: { delay: 0, type: 'spring', stiffness: 200, damping: 30, duration: 5000 } }
             }
-            exit={{
-              opacity: 0,
-              scale: 0.5,
-              transition: {
-                delay: 0.1,
-                type: 'spring',
-                stiffness: 600,
-                damping: 30,
-              },
-            }}
+            exit={{ opacity: 0, scale: 0.5, transition: { delay: 0.1, type: 'spring', stiffness: 600, damping: 30 } }}
           >
             <div className="p-2 flex flex-row justify-between items-start">
               <div className="flex flex-row gap-4 items-start">
@@ -417,18 +325,10 @@ function PureArtifact({
                   <div className="font-medium">{artifact.title}</div>
 
                   {isContentDirty ? (
-                    <div className="text-sm text-muted-foreground">
-                      Saving changes...
-                    </div>
+                    <div className="text-sm text-muted-foreground">Saving changes...</div>
                   ) : document ? (
                     <div className="text-sm text-muted-foreground">
-                      {`Updated ${formatDistance(
-                        new Date(document.createdAt),
-                        new Date(),
-                        {
-                          addSuffix: true,
-                        },
-                      )}`}
+                      {`Updated ${formatDistance(new Date(document.createdAt), new Date(), { addSuffix: true })}`}
                     </div>
                   ) : (
                     <div className="w-32 h-3 mt-2 bg-muted-foreground/20 rounded-md animate-pulse" />
@@ -450,11 +350,7 @@ function PureArtifact({
             <div className="dark:bg-muted bg-background h-full overflow-y-scroll !max-w-full items-center">
               <artifactDefinition.content
                 title={artifact.title}
-                content={
-                  isCurrentVersion
-                    ? artifact.content
-                    : getDocumentContentById(currentVersionIndex)
-                }
+                content={isCurrentVersion ? artifact.content : getDocumentContentById(currentVersionIndex)}
                 mode={mode}
                 status={artifact.status}
                 currentVersionIndex={currentVersionIndex}
@@ -499,13 +395,13 @@ function PureArtifact({
   );
 }
 
-export const Artifact = memo(PureArtifact, (prevProps, nextProps) => {
-  if (prevProps.status !== nextProps.status) return false;
-  if (!equal(prevProps.votes, nextProps.votes)) return false;
-  if (prevProps.input !== nextProps.input) return false;
-  if (!equal(prevProps.messages, nextProps.messages.length)) return false;
-  if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType)
-    return false;
-
+export const Artifact = memo(PureArtifact, (prev, next) => {
+  if (prev.status !== next.status) return false;
+  if (!equal(prev.votes, next.votes)) return false;
+  if (prev.input !== next.input) return false;
+  if (prev.messages.length !== next.messages.length) return false;
+  if (prev.selectedVisibilityType !== next.selectedVisibilityType) return false;
+  // re-render if context selection changes (affects pill/UI)
+  if (prev.selectedContext?.id !== next.selectedContext?.id) return false;
   return true;
 });

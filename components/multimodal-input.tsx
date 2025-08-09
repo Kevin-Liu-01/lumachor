@@ -115,18 +115,22 @@ function GlowHalo({ show }: { show: boolean }) {
   );
 }
 
-function ProgressStripe({ show }: { show: boolean }) {
+function ProgressStripe({ show, colorClass = 'via-indigo-500' }: { show: boolean; colorClass?: string }) {
   if (!show) return null;
   return (
     <div className="absolute inset-x-0 bottom-[-2px] h-[2px] overflow-hidden rounded-full">
       <motion.span
-        className="absolute h-full w-1/3 bg-gradient-to-r from-indigo-500/0 via-indigo-500/80 to-indigo-500/0"
+        className={cx(
+          'absolute h-full w-1/3 bg-gradient-to-r from-transparent to-transparent',
+          colorClass,
+        )}
         animate={{ x: ['-120%', '220%'] }}
         transition={{ duration: 1.2, ease: 'linear', repeat: Infinity }}
       />
     </div>
   );
 }
+
 
 /* ---------- main ---------- */
 function PureMultimodalInput({
@@ -403,7 +407,7 @@ function PureMultimodalInput({
   const computedPillText = useMemo(() => {
     if (pillText) return pillText;
     if (userMsgCount === 0) {
-      return autoContextOnFirst ? 'Auto context on first message' : 'Auto context is off';
+      return autoContextOnFirst ? 'Automatically generate context on first message' : 'Auto context is off';
     }
     const knownTitle = selectedContext?.name ?? '';
     const title = stripTitle(knownTitle);
@@ -416,6 +420,70 @@ function PureMultimodalInput({
   }, [pillText, userMsgCount, autoContextOnFirst, selectedContext, justInstalledContextId, status]);
 
   const showToggle = userMsgCount === 0;
+
+  type PillState =
+  | 'busy'
+  | 'auto-on'
+  | 'auto-off'
+  | 'ready-context'
+  | 'ready-no-context'
+  | 'streaming-context'
+  | 'streaming-no-context';
+
+const pillState: PillState = (() => {
+  if (pillBusy) return 'busy';
+  if (userMsgCount === 0) return autoContextOnFirst ? 'auto-on' : 'auto-off';
+  const hasCtx = !!(selectedContext || justInstalledContextId);
+  if (hasCtx) return status === 'streaming' ? 'streaming-context' : 'ready-context';
+  return status === 'streaming' ? 'streaming-no-context' : 'ready-no-context';
+})();
+
+// wrap = tint + border, dot = gradient seed, stripe = progress color
+const stateStyles: Record<PillState, { wrap: string; dot: string; stripe: string; text?: string }> = {
+  busy: {
+    wrap: 'bg-indigo-600/12 border-indigo-500/35 ring-1 ring-indigo-500/25',
+    dot: 'from-indigo-500 to-fuchsia-500',
+    stripe: 'via-indigo-500',
+    text: 'text-indigo-900 dark:text-indigo-200',
+  },
+  'auto-on': {
+    wrap: 'bg-emerald-500/10 border-emerald-500/30',
+    dot: 'from-emerald-500 to-teal-500',
+    stripe: 'via-emerald-500',
+    text: 'text-emerald-900 dark:text-emerald-200',
+  },
+  'auto-off': {
+    wrap: 'bg-slate-500/10 border-slate-500/30',
+    dot: 'from-slate-500 to-gray-500',
+    stripe: 'via-slate-500',
+    text: 'text-slate-900 dark:text-slate-200',
+  },
+  'ready-context': {
+    wrap: 'bg-violet-500/10 border-violet-500/30',
+    dot: 'from-violet-500 to-fuchsia-500',
+    stripe: 'via-violet-500',
+    text: 'text-violet-900 dark:text-violet-200',
+  },
+  'streaming-context': {
+    wrap: 'bg-fuchsia-500/10 border-fuchsia-500/30',
+    dot: 'from-fuchsia-500 to-rose-500',
+    stripe: 'via-fuchsia-500',
+    text: 'text-fuchsia-900 dark:text-fuchsia-200',
+  },
+  'ready-no-context': {
+    wrap: 'bg-amber-500/10 border-amber-500/30',
+    dot: 'from-amber-500 to-yellow-500',
+    stripe: 'via-amber-500',
+    text: 'text-amber-900 dark:text-amber-200',
+  },
+  'streaming-no-context': {
+    wrap: 'bg-orange-500/10 border-orange-500/30',
+    dot: 'from-orange-500 to-red-500',
+    stripe: 'via-orange-500',
+    text: 'text-orange-900 dark:text-orange-200',
+  },
+};
+
 
   return (
     <div className="relative w-full flex flex-col gap-4">
@@ -478,88 +546,88 @@ function PureMultimodalInput({
 
       {/* CONTROL PILL — visually distinct */}
       <div className="mx-auto w-full md:max-w-3xl px-0 -mb-1">
-        <div
+      <div
+        className={cx(
+          'relative flex border items-center gap-2 rounded-full px-3 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:backdrop-blur-md',
+          stateStyles[pillState].wrap,
+        )}
+        aria-busy={pillBusy}
+        data-busy={pillBusy ? 'true' : 'false'}
+      >
+        {/* subtle halo when busy */}
+        <GlowHalo show={pillBusy} />
+
+        {/* colored dot (spins when busy) */}
+        <span
           className={cx(
-            'relative flex items-center gap-2 rounded-full px-3 py-1.5 shadow-sm',
-            'bg-background/90 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md',
-            pillBusy ? 'border border-indigo-400/40 ring-1 ring-indigo-400/30' : 'border border-indigo-500/20',
+            'inline-grid place-items-center size-3 rounded-full bg-gradient-to-r',
+            stateStyles[pillState].dot,
           )}
-          aria-busy={pillBusy}
-          data-busy={pillBusy ? 'true' : 'false'}
         >
-          {/* glow ring */}
-          <GlowHalo show={pillBusy} />
+          {pillBusy && <Spinner className="text-white/95" />}
+        </span>
 
-          {/* gradient dot + spinner when busy */}
-          <span
-            className={cx(
-              'inline-grid place-items-center size-3 rounded-full',
-              'bg-gradient-to-r from-indigo-500 to-fuchsia-500',
-            )}
+        {/* text */}
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={computedPillText}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className={cx('truncate text-xs md:text-sm', stateStyles[pillState].text || 'text-foreground')}
           >
-            {pillBusy && <Spinner className="text-white/95" />}
-          </span>
+            {computedPillText}
+          </motion.span>
+        </AnimatePresence>
 
-          {/* text */}
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.span
-              key={computedPillText}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.15 }}
-              className={cx('truncate text-xs md:text-sm', pillBusy ? 'font-medium text-foreground' : 'text-foreground/90')}
+        {/* right-side controls (unchanged) */}
+        <div className="ml-auto flex items-center gap-2">
+          {showToggle && (
+            <>
+              <span className="text-[11px] opacity-70 hidden sm:inline">Auto</span>
+              <MiniToggle
+                checked={autoContextOnFirst}
+                onChange={setAutoContextOnFirst}
+                ariaLabel="Toggle auto-generate context on first message"
+              />
+            </>
+          )}
+          {pillBusy && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                cancelGenerate();
+              }}
+              className={cx(
+                'text-[11px] px-2 py-1 rounded-full border transition-colors',
+                'border-red-500/40 text-red-600/90 hover:bg-red-500/10',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40',
+              )}
+              aria-label="Cancel generating context"
             >
-              {computedPillText}
-            </motion.span>
-          </AnimatePresence>
-
-          {/* right side controls */}
-          <div className="ml-auto flex items-center gap-2">
-            {showToggle && (
-              <>
-                <span className="text-[11px] opacity-70 hidden sm:inline">Auto</span>
-                <MiniToggle
-                  checked={autoContextOnFirst}
-                  onChange={setAutoContextOnFirst}
-                  ariaLabel="Toggle auto-generate context on first message"
-                />
-              </>
-            )}
-            {pillBusy && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  cancelGenerate();
-                }}
-                className={cx(
-                  'text-[11px] px-2 py-1 rounded-full border transition-colors',
-                  'border-red-500/40 text-red-600/90 hover:bg-red-500/10',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40',
-                )}
-                aria-label="Cancel generating context"
-              >
-                Cancel
-              </button>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 gap-1"
-              onClick={onOpenContexts}
-              aria-label="Change context"
-              disabled={pillBusy}
-            >
-              <LibraryBig className="size-4" />
-              <span className="hidden sm:inline">Change</span>
-            </Button>
-          </div>
-
-          {/* progress stripe while busy */}
-          <ProgressStripe show={pillBusy} />
+              Cancel
+            </button>
+          )}
+          <Button
+            type="button"               
+            size="sm"
+            variant="outline"
+            className="h-7 px-3 gap-1 rounded-2xl"
+            onClick={onOpenContexts}
+            aria-label="Change context"
+            disabled={pillBusy}
+          >
+            <LibraryBig className="size-4" />
+            <span className="hidden sm:inline text-xs">Context</span>
+          </Button>
         </div>
+
+        {/* stripe also changes color */}
+        <ProgressStripe show={pillBusy || status === 'streaming'} colorClass={stateStyles[pillState].stripe} />
       </div>
+    </div>
 
       {/* textarea + controls */}
       <div className="relative">

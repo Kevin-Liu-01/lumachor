@@ -25,9 +25,7 @@ import type { Attachment, ChatMessage } from '@/lib/types';
 import { useDataStream } from './data-stream-provider';
 
 import { ContextSelectedBar, type ContextRow } from './context-selected-bar';
-import { ContextLibraryDock } from './context-library-dock'; // ← brought back
-
-/* ----------------------------- Helpers ----------------------------- */
+import { ContextLibraryDock } from './context-library-dock';
 
 function cleanTitle(s: string) {
   return s.replace(/^\s*(?:\*\*Title\*\*|#+)\s*/i, '').trim();
@@ -40,8 +38,6 @@ function isStructuredJson(content: string) {
     return false;
   }
 }
-
-/* ------------------------------ Main ------------------------------- */
 
 export function Chat({
   id,
@@ -67,7 +63,6 @@ export function Chat({
   const [input, setInput] = useState('');
   const [contextDockOpen, setContextDockOpen] = useState(false);
 
-  // Selected context (id in state + ref for transport)
   const [selectedContextId, _setSelectedContextId] = useState<string | null>(null);
   const selectedContextIdRef = useRef<string | null>(null);
   const setSelectedContextIdSafe = (next: string | null) => {
@@ -75,14 +70,12 @@ export function Chat({
     _setSelectedContextId(next);
   };
 
-  // Contexts (SWR)
   const { data: contextsData, mutate: reloadContexts } = useSWR<{ contexts: ContextRow[] }>(
     `/api/contexts?mine=true`,
     fetcher,
   );
   const contexts = useMemo(() => contextsData?.contexts ?? [], [contextsData?.contexts]);
 
-  // Chat hook
   const { messages, setMessages, sendMessage, status, stop, regenerate, resumeStream } =
     useChat<ChatMessage>({
       id,
@@ -96,7 +89,6 @@ export function Chat({
           const idFromRef = selectedContextIdRef.current;
           const contextIds = idFromRef ? [idFromRef] : [];
 
-          // pretty logging
           let title: string | undefined;
           let structured = false;
           if (idFromRef) {
@@ -136,36 +128,56 @@ export function Chat({
       },
     });
 
-  // ?query= just pre-fills the composer (don’t auto-send)
   const searchParams = useSearchParams();
+
+  // ?query= just pre-fills
   const urlQuery = searchParams.get('query');
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
   useEffect(() => {
     if (urlQuery && !hasAppendedQuery) {
       setInput(urlQuery);
       setHasAppendedQuery(true);
-      window.history.replaceState({}, '', `/chat/${id}`);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('query');
+      window.history.replaceState({}, '', url.toString());
     }
-  }, [urlQuery, hasAppendedQuery, id]);
+  }, [urlQuery, hasAppendedQuery]);
 
-  // Votes (lazy)
+  // ?context= select once then clean URL
+  const contextFromUrl = searchParams.get('context');
+  const [contextApplied, setContextApplied] = useState(false);
+  useEffect(() => {
+    if (!contextApplied && contextFromUrl) {
+      setSelectedContextIdSafe(contextFromUrl);
+      setContextApplied(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('context');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [contextApplied, contextFromUrl]);
+
   const { data: votes } = useSWR<Array<Vote>>(
     messages.length >= 2 ? `/api/vote?chatId=${id}` : null,
     fetcher,
   );
 
-  // Attachments / artifact
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const isArtifactVisible = useArtifactSelector((s) => s.isVisible);
 
-  // Auto-resume
   useAutoResume({ autoResume, initialMessages, resumeStream, setMessages });
 
-  // Selected context object (for pill/details)
-  const selectedContext = useMemo<ContextRow | null>(
+  const selectedFromMine = useMemo(
     () => (selectedContextId ? contexts.find((x) => x.id === selectedContextId) ?? null : null),
     [selectedContextId, contexts]
   );
+
+  const { data: selectedContextFallback } = useSWR<{ context: ContextRow }>(
+    selectedContextId && !selectedFromMine ? `/api/contexts/${selectedContextId}` : null,
+    fetcher
+  );
+
+  const selectedContext: ContextRow | null =
+    selectedFromMine ?? selectedContextFallback?.context ?? null;
 
   const handleSelectContext = (row: ContextRow) => {
     setSelectedContextIdSafe(row.id);
@@ -174,7 +186,7 @@ export function Chat({
 
   return (
     <>
-      <div className="flex flex-col min-w-0 h-dvh bg-background">
+      <div className="relative flex flex-col min-w-0 h-dvh bg-background">
         <ChatHeader
           chatId={id}
           selectedModelId={initialChatModel}
@@ -217,7 +229,6 @@ export function Chat({
               setMessages={setMessages}
               sendMessage={sendMessage}
               selectedVisibilityType={visibilityType}
-              /* Hand off just enough for auto-context + pill */
               selectedContext={selectedContext}
               setSelectedContextId={setSelectedContextIdSafe}
               reloadContexts={() => reloadContexts?.()}
@@ -242,11 +253,10 @@ export function Chat({
         votes={undefined}
         isReadonly={isReadonly}
         selectedVisibilityType={visibilityType}
-         /* Hand off just enough for auto-context + pill */
-              selectedContext={selectedContext}
-              setSelectedContextId={setSelectedContextIdSafe}
-              reloadContexts={() => reloadContexts?.()}
-              onOpenContexts={() => setContextDockOpen(true)}
+        selectedContext={selectedContext}
+        setSelectedContextId={setSelectedContextIdSafe}
+        reloadContexts={() => reloadContexts?.()}
+        onOpenContexts={() => setContextDockOpen(true)}
       />
 
       <ContextLibraryDock

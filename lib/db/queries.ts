@@ -10,6 +10,9 @@ import {
   gte,
   inArray,
   lt,
+  sql,
+  ilike,
+  or,
   type SQL,
 } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
@@ -583,5 +586,49 @@ export async function linkContextsToChat({
     }
   } catch (error) {
     throw new ChatSDKError('bad_request:database', 'Failed to link contexts to chat');
+  }
+}
+
+
+export async function searchChats({
+  userId,
+  q,
+  limit = 25,
+}: {
+  userId: string;
+  q: string;
+  limit?: number;
+}) {
+  // basic ilike across chat.title and message.parts::text
+  // returns distinct chats with lastMessageAt for sorting
+  try {
+    const needle = `%${q}%`;
+
+    const rows = await db
+      .select({
+        id: chat.id,
+        title: chat.title,
+        createdAt: chat.createdAt,
+        lastMessageAt: sql<Date>`max(${message.createdAt})`.as('lastMessageAt'),
+      })
+      .from(chat)
+      .leftJoin(message, eq(message.chatId, chat.id))
+      .where(
+        and(
+          eq(chat.userId, userId),
+          or(
+            ilike(chat.title, needle),
+            // cast JSONB to text for a quick substring match
+            sql<boolean>`${message.parts}::text ILIKE ${needle}`,
+          ),
+        ),
+      )
+      .groupBy(chat.id, chat.title, chat.createdAt)
+      .orderBy(desc(sql`max(${message.createdAt})`), desc(chat.createdAt))
+      .limit(limit);
+
+    return rows;
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to search chats');
   }
 }

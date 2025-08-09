@@ -48,7 +48,11 @@ type StructuredContext = {
 type ContextRowWithMeta = ContextRow & {
   liked?: boolean;
   owner?: boolean;
+  publicId?: string | null;
+  publishedAt?: string | null;
 };
+
+type Scope = 'all' | 'mine' | 'starred' | 'public';
 
 function cleanTitle(s: string) {
   return s.replace(/^\s*(?:\*\*Title\*\*|#+)\s*/i, '').trim();
@@ -123,7 +127,7 @@ function TagFilter({
   collapsedCount?: number;
   enableSearch?: boolean;
 }) {
-  const [open, setOpen] = useState(false); // false = collapsed
+  const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
@@ -141,7 +145,6 @@ function TagFilter({
 
   return (
     <div className="space-y-2">
-      {/* header row */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm opacity-80">Filter by tags</span>
         <button
@@ -178,26 +181,10 @@ function TagFilter({
         </div>
       </div>
 
-      {/* tag list */}
-      <div
-        id="tag-filter-list"
-        className="flex flex-wrap gap-1.5"
-        role="listbox"
-        aria-label="Tag filters"
-      >
-        {/* “all” pseudo-tag */}
-        <SoftTag
-          label="all"
-          active={selected.length === 0}
-          onClick={onClear}
-        />
+      <div id="tag-filter-list" className="flex flex-wrap gap-1.5" role="listbox" aria-label="Tag filters">
+        <SoftTag label="all" active={selected.length === 0} onClick={onClear} />
         {visible.map((t) => (
-          <SoftTag
-            key={t}
-            label={t}
-            active={selected.includes(t)}
-            onClick={() => onToggle(t)}
-          />
+          <SoftTag key={t} label={t} active={selected.includes(t)} onClick={() => onToggle(t)} />
         ))}
         {!open && remaining > 0 && (
           <button
@@ -214,7 +201,6 @@ function TagFilter({
     </div>
   );
 }
-
 
 /* ------------------------------------------------------------------ */
 /* TagInput (inline suggestions)                                       */
@@ -238,16 +224,15 @@ function TagInput({
   const lower = value.map((v) => v.toLowerCase());
   const containerRef = useRef<HTMLDivElement>(null);
 
-   useEffect(() => {
+  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpenSugs(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
 
   function commit(token: string) {
     const t = token.trim().toLowerCase();
@@ -262,10 +247,9 @@ function TagInput({
       .filter((s) => s.toLowerCase().includes(d) && !lower.includes(s.toLowerCase()))
       .slice(0, 16);
   }, [draft, suggestions, lower]);
-  
 
   return (
-    <div ref={containerRef} className="w-full">
+    <div ref={containerRef} className="w-full relative">
       <div className="rounded-xl border px-2 py-1.5 bg-background/70 backdrop-blur-sm">
         <div className="flex flex-wrap gap-1">
           {value.map((t) => (
@@ -308,43 +292,36 @@ function TagInput({
                 setOpenSugs(false);
               }
             }}
-            onBlur={() => {
-              // keep open to reduce flicker; let user click suggestions
-              // you can close on blur if you prefer:
-              // setOpenSugs(false);
-            }}
           />
         </div>
       </div>
 
-      {/* INLINE suggestions (no absolute positioning) */}
       <AnimatePresence>
         {openSugs && filteredSugs.length > 0 && (
           <div className="absolute mt-2 z-20">
-          <motion.div
-            initial={{ opacity: 0, y: -2 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -2 }}
-            className="rounded-xl border bg-background/90 backdrop-blur p-2 shadow-sm"
-          >
-            <div className="text-[11px] mb-1 opacity-70 px-1">Suggestions</div>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-              {filteredSugs.map((s) => (
-                <SoftTag
-                  key={s}
-                  label={s}
-                  onClick={() => {
-                    commit(s);
-                    setDraft('');
-                    // keep open in case they want to add multiple tags quickly
-                  }}
-                />
-              ))}
-            </div>
-            <div className="mt-2 text-[11px] opacity-60 px-1">
-              Press <kbd className="px-1 border rounded">Enter</kbd> to add custom tag
-            </div>
-          </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: -2 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -2 }}
+              className="rounded-xl border bg-background/90 backdrop-blur p-2 shadow-sm"
+            >
+              <div className="text-[11px] mb-1 opacity-70 px-1">Suggestions</div>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                {filteredSugs.map((s) => (
+                  <SoftTag
+                    key={s}
+                    label={s}
+                    onClick={() => {
+                      commit(s);
+                      setDraft('');
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="mt-2 text-[11px] opacity-60 px-1">
+                Press <kbd className="px-1 border rounded">Enter</kbd> to add custom tag
+              </div>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>
@@ -367,48 +344,40 @@ export function ContextLibraryDock({
   onClose: () => void;
   onSelect: (row: ContextRow) => void;
   selectedContextId: string | null;
-  reloadConfigs?: () => Promise<any> | void; // (typo-safe) not required
   reloadContexts?: () => Promise<any> | void;
 }) {
-  const key = open ? '/api/contexts?mine=true&withMeta=1' : null;
+  const [scope, setScope] = useState<Scope>('all');
+
+  const key =
+    open
+      ? scope === 'public'
+        ? '/api/public-contexts'
+        : `/api/contexts?withMeta=1${scope === 'mine' ? '&mine=1' : ''}${scope === 'starred' ? '&starred=1' : ''}`
+      : null;
+
   const { data, isLoading, mutate } = useSWR<{ contexts: ContextRowWithMeta[] }>(key, fetcher);
 
   const [query, setQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [matchMode, setMatchMode] = useState<'any' | 'all'>('any');
 
-  // tag shelf controls
-  const TAG_LIMIT = 18;
-  const [showAllTags, setShowAllTags] = useState(false);
-
-  // quick-generate (LLM)
+  // creators
   const [genPrompt, setGenPrompt] = useState('');
   const [genTags, setGenTags] = useState<string[]>([]);
   const [genBusy, setGenBusy] = useState(false);
 
-  // manual add
-  const [newOpen, setNewOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newTags, setNewTags] = useState<string[]>([]);
   const [newContent, setNewContent] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const listContainerRef = useRef<HTMLDivElement | null>(null);
+  // keyboard nav
   const [activeIndex, setActiveIndex] = useState<number>(-1);
 
   const contexts = useMemo(() => data?.contexts ?? [], [data?.contexts]);
 
-  // sort tags: selected first, then the rest
-  const allTagsRaw = useMemo(() => unique(contexts.flatMap((c) => c.tags)).sort(), [contexts]);
-  const [visibleTags, hiddenCount] = useMemo(() => {
-    const selectedSet = new Set(selectedTags);
-    const selectedFirst = allTagsRaw.filter((t) => selectedSet.has(t));
-    const others = allTagsRaw.filter((t) => !selectedSet.has(t));
-    const ordered = [...selectedFirst, ...others];
-    const limited = showAllTags ? ordered : ordered.slice(0, TAG_LIMIT);
-    return [limited, Math.max(0, ordered.length - limited.length)] as const;
-  }, [allTagsRaw, selectedTags, showAllTags]);
+  const allTagsRaw = useMemo(() => unique(contexts.flatMap((c) => c.tags || [])).sort(), [contexts]);
 
   const filtered = useMemo(() => {
     let items = contexts;
@@ -429,17 +398,17 @@ export function ContextLibraryDock({
     }
     if (selectedTags.length > 0) {
       const comp = (tags: string[]) => {
-        const set = new Set(tags.map((t) => t.toLowerCase()));
+        const set = new Set((tags || []).map((t) => t.toLowerCase()));
         return matchMode === 'any'
           ? selectedTags.some((t) => set.has(t.toLowerCase()))
           : selectedTags.every((t) => set.has(t.toLowerCase()));
       };
-      items = items.filter((c) => comp(c.tags));
+      items = items.filter((c) => comp(c.tags || []));
     }
     return items;
   }, [contexts, query, selectedTags, matchMode]);
 
-  // keyboard nav
+  // keyboard
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -461,9 +430,7 @@ export function ContextLibraryDock({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, filtered, activeIndex, onClose, onSelect]);
 
-  function toggleTag(t: string) {
-    setSelectedTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
-  }
+  /* --------------------------- Actions -------------------------------- */
 
   async function handleQuickGenerate() {
     if (!genPrompt.trim()) return;
@@ -478,10 +445,10 @@ export function ContextLibraryDock({
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.message || 'Failed to generate');
       }
-      await reloadContexts?.();
-      await mutate();
       setGenPrompt('');
       setGenTags([]);
+      await reloadContexts?.();
+      await mutate();
       toast({ type: 'success', description: 'Context generated!' });
     } catch (e: any) {
       toast({ type: 'error', description: e?.message || 'Failed to generate context' });
@@ -515,7 +482,6 @@ export function ContextLibraryDock({
       setNewDesc('');
       setNewTags([]);
       setNewContent('');
-      setNewOpen(false);
       await reloadContexts?.();
       await mutate();
       toast({ type: 'success', description: 'Context created.' });
@@ -531,11 +497,7 @@ export function ContextLibraryDock({
     const next = prev.map((c) => (c.id === id ? { ...c, liked: !isLiked } : c));
     mutate({ contexts: next }, { revalidate: false });
     try {
-      const res = await fetch(`/api/contexts/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'toggle_like' }),
-      });
+      const res = await fetch(`/api/contexts/${id}`, { method: 'PATCH' }); // body not required
       if (!res.ok) throw new Error('Failed to toggle star');
       await mutate();
     } catch {
@@ -570,9 +532,21 @@ export function ContextLibraryDock({
         const j = await res.json().catch(() => ({}));
         throw new Error(j?.message || 'Failed to publish');
       }
+      await mutate();
       toast({ type: 'success', description: 'Published to Public Library.' });
     } catch (e: any) {
       toast({ type: 'error', description: e?.message || 'Failed to publish' });
+    }
+  }
+
+  async function unpublishContext(publicId: string) {
+    try {
+      const res = await fetch(`/api/public-contexts/${publicId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to unpublish');
+      await mutate();
+      toast({ type: 'success', description: 'Removed from Public Library.' });
+    } catch (e: any) {
+      toast({ type: 'error', description: e?.message || 'Failed to unpublish' });
     }
   }
 
@@ -593,14 +567,14 @@ export function ContextLibraryDock({
           role="dialog"
           aria-label="Context Library"
         >
-          {/* glow */}
+          {/* subtle glow */}
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute -right-28 -top-28 size-60 rounded-full bg-fuchsia-500/10 blur-3xl" />
             <div className="absolute -left-24 -bottom-24 size-60 rounded-full bg-indigo-500/10 blur-3xl" />
           </div>
 
           {/* Header */}
-          <div className="sticky top-0 z-10 border-b bg-gradient-to-r from-indigo-500/[0.06] via-fuchsia-500/[0.06] to-pink-500/[0.06] backdrop-blur">
+          <div className="sticky top-0 z-10 border-b bg-background/70 backdrop-blur">
             <div className="flex items-center justify-between px-3 py-2">
               <div className="flex items-center gap-2">
                 <div className="grid place-items-center rounded-lg border bg-background/80 p-1.5 text-indigo-600 border-indigo-500/30">
@@ -608,7 +582,7 @@ export function ContextLibraryDock({
                 </div>
                 <div className="font-medium">Context Library</div>
                 <div className="text-xs opacity-70 ml-2 tabular-nums">
-                  {isLoading ? '…' : `${filtered.length}/${contexts.length}`} visible
+                  {isLoading ? '…' : `${(data?.contexts ?? []).length}`} items
                 </div>
               </div>
               <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
@@ -616,7 +590,27 @@ export function ContextLibraryDock({
               </Button>
             </div>
 
-            {/* Controls */}
+            {/* Tabs */}
+            <div className="px-3 pb-2">
+              <div className="inline-flex gap-1 rounded-xl border p-1 bg-background/60">
+                {(['all', 'mine', 'starred', 'public'] as Scope[]).map((s) => (
+                  <Button
+                    key={s}
+                    size="sm"
+                    variant={scope === s ? 'default' : 'ghost'}
+                    className="h-8 px-3"
+                    onClick={() => {
+                      setScope(s);
+                      setActiveIndex(-1);
+                    }}
+                  >
+                    {s[0].toUpperCase() + s.slice(1)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Search + Tags + Create */}
             <div className="px-3 pb-3 space-y-3">
               {/* Search */}
               <div className="flex items-center gap-2">
@@ -636,117 +630,118 @@ export function ContextLibraryDock({
               </div>
 
               {/* Tags */}
-              {/* Tags (replace your existing block) */}
-<div className="space-y-3">
-  <div className="flex items-center gap-2">
-    <Hash className="size-4 opacity-70" />
-    <span className="text-sm opacity-80">Tags</span>
-    <div className="ml-auto flex items-center gap-1">
-      <Button
-        size="sm"
-        variant={matchMode === 'any' ? 'default' : 'outline'}
-        onClick={() => setMatchMode('any')}
-        className="h-7"
-      >
-        ANY
-      </Button>
-      <Button
-        size="sm"
-        variant={matchMode === 'all' ? 'default' : 'outline'}
-        onClick={() => setMatchMode('all')}
-        className="h-7"
-      >
-        ALL
-      </Button>
-    </div>
-  </div>
-
-  <TagFilter
-    allTags={allTagsRaw}
-    selected={selectedTags}
-    onToggle={(t) =>
-      setSelectedTags((prev) =>
-        prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
-      )
-    }
-    onClear={() => setSelectedTags([])}
-    collapsedCount={14}   // tweak to taste
-    enableSearch={true}
-  />
-</div>
-
-
-              {/* New Context (manual) */}
-              <div className="rounded-2xl border bg-background/70 backdrop-blur p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Plus className="size-4" />
-                    <span className="text-sm font-medium">New Context</span>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => setNewOpen((v) => !v)}>
-                    {newOpen ? 'Hide' : 'Create'}
-                  </Button>
-                </div>
-
-                <AnimatePresence>
-                  {newOpen && (
-                    <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="mt-3 space-y-2">
-                      <Input placeholder="Title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
-                      <Input placeholder="Short description (optional)" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-xs opacity-70">
-                          <TagIcon className="size-3" />
-                          Tags
-                        </div>
-                        <TagInput value={newTags} onChange={setNewTags} suggestions={allTagsRaw} placeholder="e.g. support, math, writing" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs opacity-70">Content (JSON or plain text)</div>
-                        <Textarea rows={5} placeholder="Either paste structured JSON or free text." value={newContent} onChange={(e) => setNewContent(e.target.value)} />
-                      </div>
-                      <div className="flex items-center justify-end">
-                        <Button onClick={createManualContext} disabled={creating || !newTitle.trim() || !newContent.trim()}>
-                          {creating ? 'Creating…' : 'Create Context'}
-                        </Button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Quick Generate (LLM) */}
-              <div className="rounded-2xl border bg-background/70 backdrop-blur p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="size-4" />
-                    <span className="text-sm font-medium">Quick Generate</span>
-                  </div>
-                  <div className="text-xs opacity-70 flex items-center gap-1">
-                    <Filter className="size-3" /> draft a structured context
-                  </div>
-                </div>
-
-                <div className="mt-2 space-y-2">
-                  <Input placeholder="What should this assistant specialize in?" value={genPrompt} onChange={(e) => setGenPrompt(e.target.value)} />
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-xs opacity-70">
-                      <TagIcon className="size-3" />
-                      Tags
-                    </div>
-                    <TagInput value={genTags} onChange={setGenTags} suggestions={allTagsRaw} placeholder="e.g. writing, math, legal, support" />
-                  </div>
-                  <div className="flex items-center justify-end">
-                    <Button onClick={handleQuickGenerate} disabled={genBusy || !genPrompt.trim()}>
-                      {genBusy ? 'Generating…' : 'Generate'}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Hash className="size-4 opacity-70" />
+                  <span className="text-sm opacity-80">Tags</span>
+                  <div className="ml-auto flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant={matchMode === 'any' ? 'default' : 'outline'}
+                      onClick={() => setMatchMode('any')}
+                      className="h-7"
+                    >
+                      ANY
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={matchMode === 'all' ? 'default' : 'outline'}
+                      onClick={() => setMatchMode('all')}
+                      className="h-7"
+                    >
+                      ALL
                     </Button>
                   </div>
                 </div>
+
+                <TagFilter
+                  allTags={allTagsRaw}
+                  selected={selectedTags}
+                  onToggle={(t) =>
+                    setSelectedTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
+                  }
+                  onClear={() => setSelectedTags([])}
+                  collapsedCount={14}
+                  enableSearch
+                />
               </div>
+
+              {/* Creators (collapsed by default to declutter) */}
+              <details className="rounded-2xl border bg-background/70 backdrop-blur p-3" open={false}>
+                <summary className="flex cursor-pointer list-none items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Plus className="size-4" />
+                    <span className="text-sm font-medium">Create</span>
+                  </div>
+                  <div className="text-xs opacity-70 flex items-center gap-1">
+                    <Filter className="size-3" /> Manual & Quick Generate
+                  </div>
+                </summary>
+
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {/* Manual */}
+                  <div className="rounded-xl border p-3">
+                    <div className="text-sm font-medium mb-2">Manual</div>
+                    <Input placeholder="Title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
+                    <Input
+                      className="mt-2"
+                      placeholder="Short description (optional)"
+                      value={newDesc}
+                      onChange={(e) => setNewDesc(e.target.value)}
+                    />
+                    <div className="mt-2">
+                      <div className="flex items-center gap-2 text-xs opacity-70 mb-1">
+                        <TagIcon className="size-3" /> Tags
+                      </div>
+                      <div className="relative">
+                        <TagInput value={newTags} onChange={setNewTags} suggestions={allTagsRaw} />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <div className="text-xs opacity-70 mb-1">Content (JSON or plain text)</div>
+                      <Textarea
+                        rows={5}
+                        placeholder="Paste structured JSON or free text."
+                        value={newContent}
+                        onChange={(e) => setNewContent(e.target.value)}
+                      />
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <Button onClick={createManualContext} disabled={creating || !newTitle.trim() || !newContent.trim()}>
+                        {creating ? 'Creating…' : 'Create Context'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Quick generate */}
+                  <div className="rounded-xl border p-3">
+                    <div className="text-sm font-medium mb-2">Quick Generate</div>
+                    <Input
+                      placeholder="What should this assistant specialize in?"
+                      value={genPrompt}
+                      onChange={(e) => setGenPrompt(e.target.value)}
+                    />
+                    <div className="mt-2">
+                      <div className="flex items-center gap-2 text-xs opacity-70 mb-1">
+                        <TagIcon className="size-3" /> Tags
+                      </div>
+                      <div className="relative">
+                        <TagInput value={genTags} onChange={setGenTags} suggestions={allTagsRaw} />
+                      </div>
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <Button onClick={handleQuickGenerate} disabled={genBusy || !genPrompt.trim()}>
+                        {genBusy ? 'Generating…' : 'Generate'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </details>
             </div>
           </div>
 
           {/* List */}
-          <div ref={listContainerRef} className="h-[calc(100dvh-280px)] overflow-y-auto p-3">
+          <div className="h-[calc(100dvh-280px)] overflow-y-auto p-3">
             {isLoading ? (
               <div className="p-3 text-sm opacity-70">Loading contexts…</div>
             ) : filtered.length === 0 ? (
@@ -758,6 +753,7 @@ export function ContextLibraryDock({
                   const structured = parseStructured(c.content);
                   const title = cleanTitle(structured?.title || c.name);
                   const isFocused = idx === activeIndex;
+                  const isPublished = !!c.publicId;
 
                   return (
                     <li key={c.id}>
@@ -765,11 +761,18 @@ export function ContextLibraryDock({
                         className={cx(
                           'group w-full rounded-2xl border px-3.5 py-2.5 transition relative',
                           'bg-background/70 hover:bg-background/90 backdrop-blur-sm',
-                          active ? 'border-indigo-500/50 shadow-[0_0_0_2px_hsla(252,95%,60%,0.15)_inset]' : 'border-foreground/10 hover:border-foreground/20',
+                          active
+                            ? 'border-indigo-500/50 shadow-[0_0_0_2px_hsla(252,95%,60%,0.15)_inset]'
+                            : 'border-foreground/10 hover:border-foreground/20',
                           isFocused && 'ring-2 ring-indigo-500/40',
                         )}
                       >
-                        {active && <span className="absolute left-0 top-0 h-full w-1.5 rounded-l-2xl" style={{ background: 'linear-gradient(180deg,#6366f1,#ec4899)' }} />}
+                        {active && (
+                          <span
+                            className="absolute left-0 top-0 h-full w-1.5 rounded-l-2xl"
+                            style={{ background: 'linear-gradient(180deg,#6366f1,#ec4899)' }}
+                          />
+                        )}
 
                         <div className="flex items-start gap-3">
                           <button
@@ -785,6 +788,11 @@ export function ContextLibraryDock({
                               {c.owner && (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
                                   You
+                                </span>
+                              )}
+                              {isPublished && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                                  Public
                                 </span>
                               )}
                               {active && (
@@ -804,7 +812,11 @@ export function ContextLibraryDock({
                             {c.tags?.length > 0 && (
                               <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 {c.tags.slice(0, 8).map((t) => (
-                                  <span key={t} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]" style={{ background: colorFromTag(t), borderColor: 'transparent' }}>
+                                  <span
+                                    key={t}
+                                    className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]"
+                                    style={{ background: colorFromTag(t), borderColor: 'transparent' }}
+                                  >
                                     #{t}
                                   </span>
                                 ))}
@@ -838,23 +850,61 @@ export function ContextLibraryDock({
                             </Tooltip>
 
                             {c.owner && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="size-7 text-rose-500"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      deleteContext(c.id);
-                                    }}
-                                    aria-label="Delete"
-                                  >
-                                    <Trash2 className="size-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Delete</TooltipContent>
-                              </Tooltip>
+                              <>
+                                {c.publicId ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          unpublishContext(c.publicId!);
+                                        }}
+                                      >
+                                        Remove from Public
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Unpublish from the public library</TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          publishContext(c.id);
+                                        }}
+                                      >
+                                        Publish
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Add to the public library</TooltipContent>
+                                  </Tooltip>
+                                )}
+
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="size-7 text-rose-500"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteContext(c.id);
+                                      }}
+                                      aria-label="Delete"
+                                    >
+                                      <Trash2 className="size-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Delete</TooltipContent>
+                                </Tooltip>
+                              </>
                             )}
                           </div>
                         </div>

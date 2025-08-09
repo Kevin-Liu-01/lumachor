@@ -25,7 +25,7 @@ import type { Attachment, ChatMessage } from '@/lib/types';
 import { useDataStream } from './data-stream-provider';
 
 import { ContextSelectedBar, type ContextRow } from './context-selected-bar';
-import { ContextLibraryDock } from './context-library-dock';
+import { ContextLibraryDock } from './context-library-dock'; // ← brought back
 
 /* ----------------------------- Helpers ----------------------------- */
 
@@ -75,16 +75,12 @@ export function Chat({
     _setSelectedContextId(next);
   };
 
-  // Contexts (for title/structured logging + pill details)
+  // Contexts (SWR)
   const { data: contextsData, mutate: reloadContexts } = useSWR<{ contexts: ContextRow[] }>(
     `/api/contexts?mine=true`,
     fetcher,
   );
-  // Memoize contexts so it's stable unless data actually changes
-  const contexts = useMemo(
-    () => contextsData?.contexts ?? [],
-    [contextsData?.contexts]
-  );
+  const contexts = useMemo(() => contextsData?.contexts ?? [], [contextsData?.contexts]);
 
   // Chat hook
   const { messages, setMessages, sendMessage, status, stop, regenerate, resumeStream } =
@@ -140,17 +136,17 @@ export function Chat({
       },
     });
 
-  // Initial ?query= passthrough
+  // ?query= just pre-fills the composer (don’t auto-send)
   const searchParams = useSearchParams();
   const urlQuery = searchParams.get('query');
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
   useEffect(() => {
     if (urlQuery && !hasAppendedQuery) {
-      sendMessage({ role: 'user', parts: [{ type: 'text', text: urlQuery }] });
+      setInput(urlQuery);
       setHasAppendedQuery(true);
       window.history.replaceState({}, '', `/chat/${id}`);
     }
-  }, [urlQuery, sendMessage, hasAppendedQuery, id]);
+  }, [urlQuery, hasAppendedQuery, id]);
 
   // Votes (lazy)
   const { data: votes } = useSWR<Array<Vote>>(
@@ -170,12 +166,11 @@ export function Chat({
     () => (selectedContextId ? contexts.find((x) => x.id === selectedContextId) ?? null : null),
     [selectedContextId, contexts]
   );
+
   const handleSelectContext = (row: ContextRow) => {
     setSelectedContextIdSafe(row.id);
     setContextDockOpen(false);
   };
-
-  /* ------------------------------ UI ------------------------------- */
 
   return (
     <>
@@ -196,30 +191,6 @@ export function Chat({
           onClear={() => setSelectedContextIdSafe(null)}
           stickyTop="2rem"
         />
-
-        {/* <PublicContextLibrary
-  open={publicOpen}
-  onClose={() => setPublicOpen(false)}
-  onUse={(ctx) => {
-    // setSelectedContextIdSafe(ctx.id)         // if you want to reference public directly (not recommended)
-    // Better: import + select automatically:
-    fetch('/api/contexts/import', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ publicId: ctx.publicId }),
-    }).then(async (r) => {
-      if (!r.ok) throw new Error('Import failed');
-      const j = await r.json();
-      setSelectedContextIdSafe(j.context.id);
-      toast({ type: 'success', description: 'Imported & selected.' });
-      setPublicOpen(false);
-    }).catch((e) => toast({ type: 'error', description: e.message }));
-  }}
-  onImported={(ctx) => {
-    // e.g., refresh personal list or auto-select
-    setSelectedContextIdSafe(ctx.id);
-  }}
-/> */}
 
         <Messages
           chatId={id}
@@ -246,18 +217,15 @@ export function Chat({
               setMessages={setMessages}
               sendMessage={sendMessage}
               selectedVisibilityType={visibilityType}
+              /* Hand off just enough for auto-context + pill */
+              selectedContext={selectedContext}
+              setSelectedContextId={setSelectedContextIdSafe}
+              reloadContexts={() => reloadContexts?.()}
+              onOpenContexts={() => setContextDockOpen(true)}
             />
           )}
         </form>
       </div>
-
-      <ContextLibraryDock
-        open={contextDockOpen}
-        onClose={() => setContextDockOpen(false)}
-        onSelect={handleSelectContext}
-        selectedContextId={selectedContextId}
-        reloadContexts={reloadContexts}
-      />
 
       <Artifact
         chatId={id}
@@ -274,6 +242,14 @@ export function Chat({
         votes={undefined}
         isReadonly={isReadonly}
         selectedVisibilityType={visibilityType}
+      />
+
+      <ContextLibraryDock
+        open={contextDockOpen}
+        onClose={() => setContextDockOpen(false)}
+        onSelect={handleSelectContext}
+        selectedContextId={selectedContextId}
+        reloadContexts={reloadContexts}
       />
     </>
   );

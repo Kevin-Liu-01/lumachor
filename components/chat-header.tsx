@@ -115,7 +115,7 @@ function PureChatHeader({
                   <Button
                     variant="secondary"
                     className={[
-                      'px-3 py-2 h-8',
+                      'px-3 mr-2 py-2 h-8',
                       'bg-gradient-to-r from-indigo-600/10 to-fuchsia-600/10',
                       'border border-indigo-500/20',
                     ].join(' ')}

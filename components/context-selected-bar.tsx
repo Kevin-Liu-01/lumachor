@@ -1,13 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { memo, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { memo, useMemo, useState, useId, useRef } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ChevronDown, ChevronUp, LibraryBig, X } from 'lucide-react';
 import cx from 'classnames';
+import LumachorMark from './lumachormark';
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -71,6 +72,30 @@ function normalizeGoals(goals: unknown): string[] {
   return [];
 }
 
+/* --------------------------- Helpers --------------------------- */
+
+function DescriptionClamp({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="group font-light relative">
+      <p className={cx('text-xs md:text-sm leading-relaxed opacity-90', open ? '' : 'line-clamp-4')}>
+        {text}
+      </p>
+      {!open && (
+        <div className="pointer-events-none absolute inset-x-0 -bottom-1 h-10 bg-gradient-to-t from-background/80 to-transparent" />
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="mt-1 text-[11px] font-medium opacity-80 hover:opacity-100 underline underline-offset-4"
+        aria-expanded={open}
+      >
+        {open ? 'Show less' : 'Show more'}
+      </button>
+    </div>
+  );
+}
+
 /* --------------------------- Component --------------------------- */
 
 function ContextSelectedBarImpl({
@@ -82,9 +107,11 @@ function ContextSelectedBarImpl({
   disableDesktop,
 }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const panelId = useId();
+  const prefersReducedMotion = useReducedMotion();
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const sc = useMemo(() => (context ? parseStructured(context.content) : null), [context]);
-
   const title = useMemo(() => (context ? cleanTitle(sc?.title || context.name) : ''), [context, sc]);
   const desc = useMemo(() => (context ? sc?.description || context.description || '' : ''), [context, sc]);
   const tags = context?.tags ?? [];
@@ -97,14 +124,14 @@ function ContextSelectedBarImpl({
     <div className="block z-50 sticky" style={{ top: stickyTop }}>
       {/* Anchor is relative so the expanded card can be absolutely positioned under the pill */}
       <div className="relative mx-auto w-full md:max-w-3xl px-2">
-        {/* Pill (no AnimatePresence to avoid flashing) */}
+        {/* Pill */}
         <motion.div
           layout
           initial={false}
           animate={{ opacity: 1 }}
           className={cx(
             'group relative mx-auto mt-2 flex items-center gap-2 rounded-full border px-3 py-1.5',
-            'bg-background/80 backdrop-blur border-indigo-500/20 shadow-sm'
+            'bg-background/80 supports-[backdrop-filter]:backdrop-blur-xl border-indigo-500/20 shadow-sm'
           )}
         >
           {/* Brand dot */}
@@ -115,7 +142,8 @@ function ContextSelectedBarImpl({
             className="truncate text-xs md:text-sm font-medium text-foreground/90"
             onClick={() => setIsExpanded((v) => !v)}
             aria-expanded={isExpanded}
-            aria-controls="context-card-desktop"
+            aria-controls={panelId}
+            title={title}
           >
             {title || 'Context selected'}
           </button>
@@ -177,68 +205,109 @@ function ContextSelectedBarImpl({
           {isExpanded && (
             <motion.div
               key={`expanded-${context.id}`}
-              id="context-card-desktop"
-              initial={{ opacity: 0, y: -8 }}
+              id={panelId}
+              initial={{ opacity: 0, y: prefersReducedMotion ? 0 : -10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className={cx(
-                'absolute left-0 right-0 top-[calc(100%+8px)]  px-2',
-               
-              )}
+              exit={{ opacity: 0, y: prefersReducedMotion ? 0 : -8 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: 'easeOut' }}
+              className="absolute inset-x-0 top-[calc(100%+10px)] px-2 z-50"
             >
-              <div className={cx( 'overflow-hidden rounded-2xl border',
-                'bg-gradient-to-r from-indigo-500/[0.06] via-fuchsia-500/[0.06] to-pink-500/[0.06]',
-                'border-indigo-500/20 backdrop-blur-sm shadow-lg')}>
+              <div
+                ref={cardRef}
+                className={cx(
+                  'relative overflow-hidden rounded-2xl border shadow-lg',
+                  'bg-background/80 supports-[backdrop-filter]:backdrop-blur-2xl supports-[backdrop-filter]:backdrop-saturate-150',
+                  'border-white/15 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/5'
+                )}
+                role="region"
+                aria-labelledby={`${panelId}-title`}
+              >
+                {/* Iridescent ambient overlays */}
+                <div className="pointer-events-none absolute -right-28 -top-28 size-64 rounded-full bg-fuchsia-500/15 blur-3xl" />
+                <div className="pointer-events-none absolute -left-28 -bottom-28 size-64 rounded-full bg-indigo-500/15 blur-3xl" />
+                <div className="pointer-events-none absolute inset-0 [mask-image:radial-gradient(70%_55%_at_50%_0%,black,transparent)] bg-gradient-to-b from-white/10 to-transparent" />
 
-              {/* Ambient glows */}
-              <div className="pointer-events-none absolute -right-24 -top-24 size-48 rounded-full bg-fuchsia-500/10 blur-3xl" />
-              <div className="pointer-events-none absolute -left-20 -bottom-20 size-48 rounded-full bg-indigo-500/10 blur-3xl" />
-
-              <div className="pb-5 pt-2 px-4 md:px-5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-wide opacity-60">Context details</span>
-                  <div className="ml-auto">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-8"
-                      onClick={() => setIsExpanded(false)}
-                      aria-label="Collapse"
+                {/* Header */}
+                <div className="relative px-4 md:px-5 pt-3 pb-2 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-flex items-center justify-center rounded-lg border border-white/15 bg-background/60 size-6 text-indigo-600"
+                      aria-hidden
                     >
-                      <X className="size-4" />
-                    </Button>
+                      <LumachorMark variant="black" />
+                    </span>
+                    <div className="min-w-0">
+                      <div id={`${panelId}-title`} className="font-semibold text-sm md:text-[0.8rem] leading-tight truncate">
+                        {title}
+                      </div>
+                      <div className="text-[11px] opacity-70">
+                        {new Date(context.createdAt).toLocaleDateString()} • {tags.length} tag{tags.length === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                    <div className="ml-auto">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8"
+                        onClick={() => setIsExpanded(false)}
+                        aria-label="Collapse"
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </div>
                   </div>
+
+                  {/* Full tag set */}
+                  {tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {tags.map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center rounded-full border px-2 py-[3px] text-[10px] leading-none border-white/15 bg-white/5"
+                        >
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Full tag set */}
-                {tags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {tags.map((t) => (
-                      <span
-                        key={t}
-                        className="inline-flex items-center rounded-md border border-indigo-500/30 px-2 py-[3px] text-[10px] leading-none"
-                      >
-                        #{t}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {/* Body */}
+                <div className="relative px-4 md:px-5 py-3">
+                  {/* Description with clamp */}
+                  {desc ? <DescriptionClamp text={desc} /> : null}
 
-                {/* Long description */}
-                {desc && <p className="mt-3 text-xs md:text-sm leading-relaxed opacity-85">{desc}</p>}
+                  {/* Goals */}
+                  {goals.length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-xs font-medium opacity-80 mb-1.5">Background & Goals</div>
+                      <ul className="list-disc font-light pl-5 space-y-1.5 text-xs md:text-[13px] opacity-90">
+                        {goals.map((g, i) => (
+                          <li key={i}>{g}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-                {/* Goals */}
-                {goals.length > 0 && (
-                  <div className="mt-3">
-                    <div className="text-xs font-medium opacity-80 mb-1.5">Background & Goals</div>
-                    <ul className="list-disc pl-5 space-y-1.5 text-xs md:text-[13px] opacity-90">
-                      {goals.map((g, i) => (
-                        <li key={i}>{g}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
+                  {/* Example prompts (preview first 3) */}
+                  {Array.isArray(sc?.example_prompts) && sc!.example_prompts!.length > 0 && (
+                    <div className="font-light mt-3">
+                      <div className="text-xs font-medium opacity-80 mb-1.5">Example prompts</div>
+                      <ul className="space-y-1.5 text-[12px] md:text-[13px] opacity-90">
+                        {sc!.example_prompts!.slice(0, 3).map((p, i) => (
+                          <li key={i} className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1">
+                            {p}
+                          </li>
+                        ))}
+                        {sc!.example_prompts!.length > 3 && (
+                          <li className="text-[11px] opacity-70 mt-1">
+                            +{sc!.example_prompts!.length - 3} more in the full context
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}
@@ -246,6 +315,8 @@ function ContextSelectedBarImpl({
       </div>
     </div>
   );
+
+  // (Optional) mobile version can be added similarly behind `disableMobile`
 
   return <>{DesktopBar}</>;
 }

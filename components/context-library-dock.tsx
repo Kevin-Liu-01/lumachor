@@ -7,6 +7,8 @@ import useSWR from 'swr';
 import cx from 'classnames';
 import {
   BadgeCheck,
+  BookDashedIcon,
+  BookIcon,
   CheckCircle2,
   ChevronDown,
   LibraryBig,
@@ -312,7 +314,7 @@ export function ContextLibraryDock({
   selectedContextId: string | null;
   reloadContexts?: () => Promise<any> | void;
 }) {
-  const [scope, setScope] = useState<Scope>('mine');
+  const [scope, setScope] = useState<Scope>('all');
 
   // fetch all scopes when open; cheap + keeps switching instant
   const { data: mineData, isLoading: loadingMine, mutate: mutateMine } = useSWR<{ contexts: ContextRowWithMeta[] }>(
@@ -328,33 +330,67 @@ export function ContextLibraryDock({
   const mine = useMemo(() => mineData?.contexts ?? [], [mineData?.contexts]);
   const starred = useMemo(() => starredData?.contexts ?? [], [starredData?.contexts]);
   const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
-  
-  // merge for "all": prefer owned copy; carry over public meta; ensure starred reflected; include extra starred if any
+
+  // overlay public meta on mine so "Mine" reflects publish state (and ensure owner=true)
+  const mineWithPublic = useMemo<ContextRowWithMeta[]>(() => {
+    if (!mine.length) return mine;
+    const pubMap = new Map(pub.map((p) => [p.id, p]));
+    return mine.map((m) => {
+      const p = pubMap.get(m.id);
+      return p
+        ? { ...m, owner: true, publicId: p.publicId ?? m.publicId ?? null, publishedAt: p.publishedAt ?? m.publishedAt ?? null }
+        : { ...m, owner: true };
+    });
+  }, [mine, pub]);
+
+  // ⭐️ overlay public meta on STARRED too so it shows Public consistently
+  const starredWithPublic = useMemo<ContextRowWithMeta[]>(() => {
+    if (!starred.length) return starred;
+    const pubMap = new Map(pub.map((p) => [p.id, p]));
+    return starred.map((s) => {
+      const p = pubMap.get(s.id);
+      return p
+        ? { ...s, owner: true, publicId: p.publicId ?? s.publicId ?? null, publishedAt: p.publishedAt ?? s.publishedAt ?? null }
+        : { ...s, owner: true };
+    });
+  }, [starred, pub]);
+
+  // Public scope should show owned copy (from /api/contexts) for your own public contexts.
+  const pubForDisplay = useMemo<ContextRowWithMeta[]>(() => {
+    if (!pub.length) return pub;
+    const mineMap = new Map(mineWithPublic.map((m) => [m.id, m]));
+    return pub.map((p) => {
+      if (!p.owner) return p; // not mine, leave as-is
+      const owned = mineMap.get(p.id);
+      return owned
+        ? { ...owned, publicId: p.publicId ?? owned.publicId ?? null, publishedAt: p.publishedAt ?? owned.publishedAt ?? null }
+        : p;
+    });
+  }, [pub, mineWithPublic]);
+
+  // merge for "all": prefer owned copy; reflect starred
   const allCombined: ContextRowWithMeta[] = useMemo(() => {
     const pubMap = new Map(pub.map((p) => [p.id, p]));
-    const mergedMine = mine.map((m) => {
+    const mergedMine = mineWithPublic.map((m) => {
       const p = pubMap.get(m.id);
-      return p ? { ...p, ...m, owner: true, publicId: p.publicId ?? m.publicId ?? null } : m;
+      return p ? { ...p, ...m, owner: true } : m;
     });
     const mineIds = new Set(mergedMine.map((m) => m.id));
     const pubOnly = pub.filter((p) => !mineIds.has(p.id));
-    const extraStarred = starred.filter((s) => !mineIds.has(s.id) && !pubMap.has(s.id));
-    const starredSet = new Set(starred.map((s) => s.id));
-    return [...mergedMine, ...pubOnly, ...extraStarred].map((c) => ({
-      ...c,
-      liked: c.liked || starredSet.has(c.id),
-    }));
-  }, [mine, pub, starred]);
+    const extraStarred = starredWithPublic.filter((s) => !mineIds.has(s.id) && !pubMap.has(s.id));
+    const starredSet = new Set(starredWithPublic.map((s) => s.id));
+    return [...mergedMine, ...pubOnly, ...extraStarred].map((c) => ({ ...c, liked: c.liked || starredSet.has(c.id) }));
+  }, [mineWithPublic, pub, starredWithPublic]);
 
   const scopeItems = useMemo<ContextRowWithMeta[]>(() => {
     switch (scope) {
       case 'all': return allCombined;
-      case 'mine': return mine;
-      case 'starred': return starred;
-      case 'public': return pub;
-      default: return mine;
+      case 'mine': return mineWithPublic;
+      case 'starred': return starredWithPublic;
+      case 'public': return pubForDisplay;
+      default: return mineWithPublic;
     }
-  }, [scope, allCombined, mine, starred, pub]);
+  }, [scope, allCombined, mineWithPublic, starredWithPublic, pubForDisplay]);
 
   const isLoading =
     scope === 'all'
@@ -501,7 +537,7 @@ export function ContextLibraryDock({
     }
   }, [newTitle, newDesc, newTags, newContent, reloadContexts, refreshAll]);
 
-  const toggleLike = useCallback(async (id: string, isLiked: boolean) => {
+  const toggleLike = useCallback(async (id: string, _isLiked: boolean) => {
     setPending((p) => ({ ...p, like: new Set(p.like).add(id) }));
     try {
       const res = await fetch(`/api/contexts/${id}`, { method: 'PATCH' });
@@ -602,7 +638,7 @@ export function ContextLibraryDock({
     }
   }, [scope, importPublicContext, onSelect]);
 
-  // keyboard shortcuts inside dock (deps fixed per eslint)
+  // keyboard shortcuts inside dock
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -744,11 +780,11 @@ export function ContextLibraryDock({
                           animate={{ left: createMode === 'generate' ? 4 : 'calc(50% + 4px)', width: 'calc(50% - 8px)' }}
                           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                         />
-                        <button className={cx('relative z-10 h-8 px-3 text-sm rounded-lg', createMode === 'generate' ? 'text-indigo-600' : 'opacity-80')} onClick={() => setCreateMode('generate')}>
-                          <span className="inline-flex items-center gap-1"><Sparkles className="size-4" /> Generate</span>
+                        <button className={cx('relative flex items-center gap-1 z-10 h-8 pr-4 pl-2 text-sm rounded-lg', createMode === 'generate' ? 'text-indigo-600' : 'opacity-80')} onClick={() => setCreateMode('generate')}>
+                          <Sparkles className="size-4" /> Generate
                         </button>
-                        <button className={cx('relative z-10 h-8 px-3 text-sm rounded-lg', createMode === 'manual' ? 'text-indigo-600' : 'opacity-80')} onClick={() => setCreateMode('manual')}>
-                          <span className="inline-flex items-center gap-1"><Plus className="size-4" /> Manual</span>
+                        <button className={cx('relative flex items-center gap-1 z-10 h-8 pr-4 pl-2 text-sm rounded-lg', createMode === 'manual' ? 'text-indigo-600' : 'opacity-80')} onClick={() => setCreateMode('manual')}>
+                          <Plus className="size-4" /> Manual
                         </button>
                       </div>
 
@@ -854,6 +890,9 @@ export function ContextLibraryDock({
 
                   const rowBusy = likeBusy || delBusy || pubBusy || unpubBusy || impBusy;
 
+                  // Disable starring in Public scope or when not owner
+                  const starDisabled = scope === 'public' || !c.owner;
+
                   return (
                     <li key={c.id} className="cursor-pointer">
                       <div
@@ -923,14 +962,16 @@ export function ContextLibraryDock({
                                   size="icon"
                                   variant="ghost"
                                   className={cx('size-7', c.liked ? 'text-yellow-500' : 'text-foreground/60')}
-                                  onClick={(e) => { e.stopPropagation(); if (!likeBusy) toggleLike(c.id, !!c.liked); }}
+                                  onClick={(e) => { e.stopPropagation(); if (!starDisabled && !likeBusy) toggleLike(c.id, !!c.liked); }}
                                   aria-label={c.liked ? 'Unstar' : 'Star'}
                                   loading={likeBusy}
+                                  disabled={starDisabled}
+                                  title={starDisabled ? 'Star from Mine/All' : undefined}
                                 >
                                   <Star className={cx('size-4', c.liked && 'fill-yellow-500')} />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>{c.liked ? 'Unstar' : 'Star'}</TooltipContent>
+                              <TooltipContent>{starDisabled ? 'Star from Mine/All' : (c.liked ? 'Unstar' : 'Star')}</TooltipContent>
                             </Tooltip>
 
                             {c.owner ? (
@@ -939,14 +980,14 @@ export function ContextLibraryDock({
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <Button
-                                        size="sm"
-                                        variant="outline"
+                                        size="icon"
+                                        variant="ghost"
                                         className="h-7"
                                         onClick={(e) => { e.stopPropagation(); if (!unpubBusy) unpublishContext(c.publicId!); }}
                                         loading={unpubBusy}
                                         loadingText="…"
                                       >
-                                        Remove from Public
+                                        <BookDashedIcon className="size-4" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Unpublish from the public library</TooltipContent>
@@ -955,14 +996,14 @@ export function ContextLibraryDock({
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <Button
-                                        size="sm"
-                                        variant="outline"
+                                        size="icon"
+                                        variant="ghost"
                                         className="h-7"
                                         onClick={(e) => { e.stopPropagation(); if (!pubBusy) publishContext(c.id); }}
                                         loading={pubBusy}
                                         loadingText="…"
                                       >
-                                        Publish
+                                        <BookIcon className="size-4" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Add to the public library</TooltipContent>
@@ -985,7 +1026,7 @@ export function ContextLibraryDock({
                                   <TooltipContent>Delete</TooltipContent>
                                 </Tooltip>
                               </>
-                            ) : scope === 'public' && c.publicId ? (
+                            ) : (!c.owner && c.publicId) ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button

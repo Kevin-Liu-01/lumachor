@@ -158,7 +158,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
       collapsed: { opacity: 0, y: -4, filter: 'blur(3px)', transition: { duration: 0.14 } },
     }}
     className={cx(
-      'rounded-xl border h-full flex flex-col overflow-hidden',
+      'rounded-xl border h-full flex flex-col overflow-auto',
       'bg-gradient-to-b from-indigo-500/[0.04] to-transparent border-indigo-500/20',
       // prevent hover/scroll while collapsed
       isCollapsed && 'pointer-events-none',

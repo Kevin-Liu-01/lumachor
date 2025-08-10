@@ -2,14 +2,15 @@
 
 import * as React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import useSWR from 'swr';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
+import useSWR from 'swr';
 import cx from 'classnames';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowUpDown,
-  BookDashedIcon,
+  ChevronDown,
   Copy,
+  Download,
   LayoutGrid,
   LayoutList,
   LibraryBig,
@@ -20,7 +21,6 @@ import {
   Star,
   Tag as TagIcon,
   Trash2,
-  Undo,
   UploadCloud,
   X,
 } from 'lucide-react';
@@ -36,6 +36,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ShimmerOverlay, TopStripeLoader } from '@/components/ui/shimmer';
 
 import type { ContextRow } from '@/components/context-selected-bar';
+import LumachorMark from './lumachormark';
 
 /* --------------------- types / helpers --------------------- */
 
@@ -47,12 +48,14 @@ type StructuredContext = {
   constraints_scope?: string[];
   example_prompts?: string[];
 };
+
 type ContextRowWithMeta = ContextRow & {
   liked?: boolean;
   owner?: boolean;
   publicId?: string | null;
   publishedAt?: string | null;
 };
+
 type Scope = 'all' | 'mine' | 'starred' | 'public';
 type ViewMode = 'grid' | 'list';
 type SortKey = 'createdAt' | 'name' | 'stars';
@@ -61,6 +64,7 @@ const CHAT_PATH = '/'; // change to '/chat' if your chat lives there
 
 const unique = <T,>(arr: T[]) => Array.from(new Set(arr));
 const cleanTitle = (s: string) => s.replace(/^\s*(?:\*\*Title\*\*|#+)\s*/i, '').trim();
+
 function parseStructured(content: string): StructuredContext | null {
   try {
     const obj = JSON.parse(content);
@@ -68,6 +72,7 @@ function parseStructured(content: string): StructuredContext | null {
   } catch {}
   return null;
 }
+
 function colorFromTag(tag: string) {
   const hues = [262, 280, 200, 150, 20, 330, 210, 100, 40, 0];
   const i = [...tag].reduce((acc, ch) => (acc + ch.charCodeAt(0)) | 0, 0) % hues.length;
@@ -243,57 +248,83 @@ function TagFilterBox({
   collapsedCount?: number;
   loading?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState('');
-  const filtered = useMemo(() => {
+  const [open, setOpen] = React.useState(false);
+  const [q, setQ] = React.useState('');
+
+  const filtered = React.useMemo(() => {
     if (!q.trim()) return allTags;
     const d = q.toLowerCase();
     return allTags.filter((t) => t.toLowerCase().includes(d));
   }, [allTags, q]);
 
-  const visible = useMemo(() => (open ? filtered : filtered.slice(0, collapsedCount)), [filtered, open, collapsedCount]);
+  const visible = React.useMemo(
+    () => (open ? filtered : filtered.slice(0, collapsedCount)),
+    [filtered, open, collapsedCount],
+  );
   const remaining = Math.max(0, filtered.length - visible.length);
 
   return (
-    <div className="rounded-xl border bg-background/60 backdrop-blur p-2">
-      <div className="flex flex-col items-center gap-2 mb-1">
-        <span className="text-sm opacity-80">Filter by tags</span>
-        <Button size="sm" variant="ghost" className="h-7 ml-2" onClick={onClear} disabled={selected.length === 0 || loading}>
-          Clear
-        </Button>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 opacity-60" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search tags…"
-              className="pl-7 pr-2 py-1 text-xs rounded bg-background/70 min-w-[180px]"
-              aria-label="Search tags"
-              loading={loading}
-              shimmer={loading}
-            />
+    <div className="rounded-2xl border bg-background/60 backdrop-blur p-3">
+      {/* Header row */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="grid place-items-center rounded-lg border size-6 shrink-0 text-indigo-600 border-indigo-500/30 bg-background/70">
+            <TagIcon className="size-3.5" />
           </div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold leading-tight">Filter by tags</div>
+            <div className="text-[11px] opacity-70">{selected.length}/{allTags.length} selected</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
           <Button
             size="sm"
+            variant="ghost"
+            className="h-7"
+            onClick={onClear}
+            disabled={selected.length === 0 || loading}
+          >
+            Clear
+          </Button>
+          <Button
+            size="icon"
             variant="outline"
-            className="h-7 text-sm"
+            className="size-7"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
+            title={open ? 'Show fewer tags' : 'Show more tags'}
             disabled={loading}
           >
-            {open ? 'Show less' : 'Show more'}
+            <ChevronDown className={cx('size-4 transition-transform', open && 'rotate-180')} />
           </Button>
         </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+      {/* Search row */}
+      <div className="mt-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 size-4 opacity-60" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search tags…"
+            className="pl-8 h-9 w-full"
+            aria-label="Search tags"
+            loading={loading}
+            shimmer={loading}
+          />
+        </div>
+      </div>
+
+      {/* Tag chips */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {loading ? (
           <>
             <Skeleton className="h-6 w-12 rounded-full" />
-            <Skeleton className="h-6 w-14 rounded-full" />
-            <Skeleton className="h-6 w-10 rounded-full" />
             <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-6 w-10 rounded-full" />
+            <Skeleton className="h-6 w-20 rounded-full" />
           </>
         ) : (
           <>
@@ -325,7 +356,7 @@ export default function Library() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // default scope = public (as requested)
+  // default scope
   const [scope, setScope] = useState<Scope>((searchParams.get('scope') as Scope) || 'all');
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [selectedTags, setSelectedTags] = useState<string[]>(
@@ -383,31 +414,69 @@ export default function Library() {
     fetcher
   );
 
-const mine = useMemo(() => mineData?.contexts ?? [], [mineData?.contexts]);
-const starred = useMemo(() => starredData?.contexts ?? [], [starredData?.contexts]);
-const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
+  const mine = useMemo(() => mineData?.contexts ?? [], [mineData?.contexts]);
+  const starred = useMemo(() => starredData?.contexts ?? [], [starredData?.contexts]);
+  const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
 
-  // combine for "all"
-  const allCombined: ContextRowWithMeta[] = useMemo(() => {
-    const pubMap = new Map(pub.map((p) => [p.id, p]));
-    const mergedMine = mine.map((m) => {
-      const p = pubMap.get(m.id);
-      return p ? { ...p, ...m, owner: true, publicId: p.publicId ?? m.publicId ?? null } : m;
+  /* ------------ NORMALIZE SOURCES INTO ONE CANONICAL INDEX ------------ */
+
+  const mineMap = useMemo(() => {
+    const m = new Map<string, ContextRowWithMeta>();
+    for (const row of mine) m.set(row.id, { ...row, owner: true });
+    return m;
+  }, [mine]);
+
+  const pubMap = useMemo(() => {
+    const m = new Map<string, ContextRowWithMeta>();
+    for (const row of pub) m.set(row.id, row);
+    return m;
+  }, [pub]);
+
+  const starredSet = useMemo(() => new Set(starred.map((s) => s.id)), [starred]);
+
+  const universe: ContextRowWithMeta[] = useMemo(() => {
+    const ids = unique([...Array.from(mineMap.keys()), ...Array.from(pubMap.keys()), ...starred.map((s) => s.id)]);
+    return ids.map((id) => {
+      const mineRow = mineMap.get(id);
+      const pubRow = pubMap.get(id);
+      const base = (mineRow ?? pubRow)!; // exists in at least one index
+      return {
+        ...base,
+        owner: !!mineRow,
+        liked: Boolean(base.liked || starredSet.has(id)),
+        publicId: pubRow?.publicId ?? base.publicId ?? null,
+        publishedAt: pubRow?.publishedAt ?? base.publishedAt ?? null,
+      };
     });
-    const mineIds = new Set(mergedMine.map((m) => m.id));
-    const pubOnly = pub.filter((p) => !mineIds.has(p.id));
-    return [...mergedMine, ...pubOnly];
-  }, [mine, pub]);
+  }, [mineMap, pubMap, starred, starredSet]);
 
-  const scopeItems = scope === 'public' ? pub : scope === 'mine' ? mine : scope === 'starred' ? starred : allCombined;
-  const isLoading =
-    (scope === 'public' && loadingPublic) ||
-    (scope === 'mine' && loadingMine) ||
-    (scope === 'starred' && loadingStarred);
+  const itemsByScope = useMemo(
+    () => ({
+      all: universe,
+      mine: universe.filter((c) => c.owner),
+      public: universe.filter((c) => !!c.publicId),
+      starred: universe.filter((c) => !!c.liked),
+    }),
+    [universe],
+  );
 
+  const scopeItems = itemsByScope[scope];
+
+  // Tags from current scope
   const allTagsRaw = useMemo(() => unique(scopeItems.flatMap((c) => c.tags || [])).sort(), [scopeItems]);
 
-  // filters/sort
+  // Loading: ensure public meta is present where needed for pills
+  const isLoading =
+    scope === 'public'
+      ? loadingPublic
+      : scope === 'mine'
+      ? loadingMine || loadingPublic
+      : scope === 'starred'
+      ? loadingStarred || loadingPublic
+      : loadingMine || loadingStarred || loadingPublic;
+
+  /* ---------------- filters / sort / active ---------------- */
+
   const filtered = useMemo(() => {
     let items = scopeItems;
     if (query) {
@@ -433,10 +502,14 @@ const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
     }
     items = [...items].sort((a, b) => {
       switch (sortKey) {
-        case 'name': return a.name.localeCompare(b.name);
-        case 'createdAt': return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        case 'stars': return Number(b.liked) - Number(a.liked);
-        default: return 0;
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'createdAt':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'stars':
+          return Number(b.liked) - Number(a.liked);
+        default:
+          return 0;
       }
     });
     return items;
@@ -447,7 +520,7 @@ const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
   // sync url (omit default pieces)
   useEffect(() => {
     const sp = new URLSearchParams();
-    if (scope !== 'public') sp.set('scope', scope);
+    if (scope !== 'all') sp.set('scope', scope);
     if (query.trim()) sp.set('q', query.trim());
     if (selectedTags.length) sp.set('tags', selectedTags.join(','));
     if (view !== 'grid') sp.set('view', view);
@@ -473,7 +546,8 @@ const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.message || 'Failed to generate');
       }
-      setGenPrompt(''); setGenTags([]);
+      setGenPrompt('');
+      setGenTags([]);
       await Promise.all([mutateMine(), mutateStarred(), mutatePublic()]);
       toast({ type: 'success', description: 'Context generated!' });
     } catch (e: any) {
@@ -506,7 +580,10 @@ const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.message || 'Failed to create context');
       }
-      setNewTitle(''); setNewDesc(''); setNewTags([]); setNewContent('');
+      setNewTitle('');
+      setNewDesc('');
+      setNewTags([]);
+      setNewContent('');
       await Promise.all([mutateMine(), mutateStarred(), mutatePublic()]);
       toast({ type: 'success', description: 'Context created.' });
     } catch (e: any) {
@@ -525,7 +602,11 @@ const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
     } catch {
       toast({ type: 'error', description: 'Could not update star.' });
     } finally {
-      setPending((p) => { const n = new Set(p.like); n.delete(id); return { ...p, like: n }; });
+      setPending((p) => {
+        const n = new Set(p.like);
+        n.delete(id);
+        return { ...p, like: n };
+      });
     }
   }
 
@@ -540,7 +621,11 @@ const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
     } catch {
       toast({ type: 'error', description: 'Delete failed.' });
     } finally {
-      setPending((p) => { const n = new Set(p.del); n.delete(id); return { ...p, del: n }; });
+      setPending((p) => {
+        const n = new Set(p.del);
+        n.delete(id);
+        return { ...p, del: n };
+      });
     }
   }
 
@@ -561,7 +646,11 @@ const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
     } catch (e: any) {
       toast({ type: 'error', description: e?.message || 'Failed to publish' });
     } finally {
-      setPending((p) => { const n = new Set(p.pub); n.delete(id); return { ...p, pub: n }; });
+      setPending((p) => {
+        const n = new Set(p.pub);
+        n.delete(id);
+        return { ...p, pub: n };
+      });
     }
   }
 
@@ -575,49 +664,60 @@ const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
     } catch (e: any) {
       toast({ type: 'error', description: e?.message || 'Failed to unpublish' });
     } finally {
-      setPending((p) => { const n = new Set(p.unpub); n.delete(publicId); return { ...p, unpub: n }; });
+      setPending((p) => {
+        const n = new Set(p.unpub);
+        n.delete(publicId);
+        return { ...p, unpub: n };
+      });
     }
   }
-const importPublicContext = React.useCallback(async (publicId: string) => {
-  setPending((p) => ({ ...p, imp: new Set(p.imp).add(publicId) }));
-  try {
-    const res = await fetch('/api/contexts/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ publicId }),
-    });
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      throw new Error(j?.message || 'Failed to import');
-    }
-    const { context } = await res.json();
-    await Promise.all([mutateMine(), mutateStarred(), mutatePublic()]);
-    return context as ContextRowWithMeta;
-  } finally {
-    setPending((p) => {
-      const n = new Set(p.imp);
-      n.delete(publicId);
-      return { ...p, imp: n };
-    });
-  }
-}, [mutateMine, mutateStarred, mutatePublic]);
 
-  const openInChat = React.useCallback(async (context: ContextRowWithMeta) => {
-  try {
-    let ctx = context;
-    if (!ctx.owner) {
-      if (!ctx.publicId) {
-        toast({ type: 'error', description: 'Cannot use: missing public id.' });
-        return;
+  const importPublicContext = React.useCallback(
+    async (publicId: string) => {
+      setPending((p) => ({ ...p, imp: new Set(p.imp).add(publicId) }));
+      try {
+        const res = await fetch('/api/contexts/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ publicId }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j?.message || 'Failed to import');
+        }
+        const { context } = await res.json();
+        await Promise.all([mutateMine(), mutateStarred(), mutatePublic()]);
+        return context as ContextRowWithMeta;
+      } finally {
+        setPending((p) => {
+          const n = new Set(p.imp);
+          n.delete(publicId);
+          return { ...p, imp: n };
+        });
       }
-      ctx = await importPublicContext(ctx.publicId);
-      toast({ type: 'success', description: 'Added to your library.' });
-    }
-    router.push(`${CHAT_PATH}?context=${encodeURIComponent(ctx.id)}`);
-  } catch (e: any) {
-    toast({ type: 'error', description: e?.message || 'Could not use this context.' });
-  }
-}, [importPublicContext, router]);
+    },
+    [mutateMine, mutateStarred, mutatePublic],
+  );
+
+  const openInChat = React.useCallback(
+    async (context: ContextRowWithMeta) => {
+      try {
+        let ctx = context;
+        if (!ctx.owner) {
+          if (!ctx.publicId) {
+            toast({ type: 'error', description: 'Cannot use: missing public id.' });
+            return;
+          }
+          ctx = await importPublicContext(ctx.publicId);
+          toast({ type: 'success', description: 'Added to your library.' });
+        }
+        router.push(`${CHAT_PATH}?context=${encodeURIComponent(ctx.id)}`);
+      } catch (e: any) {
+        toast({ type: 'error', description: e?.message || 'Could not use this context.' });
+      }
+    },
+    [importPublicContext, router],
+  );
 
   /* ---------------- layout (100vh with internal scroll) ---------------- */
 
@@ -645,7 +745,7 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
 
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center gap-1 rounded-xl border p-1 bg-background/60">
-                {(['all','mine', 'public', 'starred'] as Scope[]).map((s) => (
+                {(['all', 'mine', 'public', 'starred'] as Scope[]).map((s) => (
                   <Button
                     key={s}
                     size="sm"
@@ -679,7 +779,7 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
               <div className="relative">
                 <Button variant="outline" size="sm" className="h-8">
                   <ArrowUpDown className="mr-2 size-4" />
-                  { sortKey === 'createdAt' ? 'Created' : sortKey === 'name' ? 'Name' : 'Stars'}
+                  {sortKey === 'createdAt' ? 'Created' : sortKey === 'name' ? 'Name' : 'Stars'}
                 </Button>
                 <button
                   className="absolute inset-0"
@@ -715,7 +815,7 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
             </div>
             {/* scope for mobile */}
             <div className="mt-2 sm:hidden inline-flex items-center gap-1 rounded-xl border p-1 bg-background/60">
-              {(['public', 'mine', 'starred', 'all'] as Scope[]).map((s) => (
+              {(['all', 'mine', 'public', 'starred'] as Scope[]).map((s) => (
                 <Button key={s} size="sm" variant={scope === s ? 'default' : 'ghost'} className="h-8 px-3" onClick={() => setScope(s)}>
                   {s[0].toUpperCase() + s.slice(1)}
                 </Button>
@@ -745,20 +845,22 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                       />
                       <button
-                        className={cx('relative z-10 h-8 px-3 text-sm rounded-lg', createMode === 'generate' ? 'text-indigo-600' : 'opacity-80')}
+                        className={cx(
+                          'relative flex items-center gap-1 z-10 h-8 pr-4 pl-2 text-sm rounded-lg',
+                          createMode === 'generate' ? 'text-indigo-600' : 'opacity-80',
+                        )}
                         onClick={() => setCreateMode('generate')}
                       >
-                        <span className="inline-flex items-center gap-1">
-                          <Sparkles className="size-4" /> Generate
-                        </span>
+                        <Sparkles className="size-4" /> Generate
                       </button>
                       <button
-                        className={cx('relative z-10 h-8 px-3 text-sm rounded-lg', createMode === 'manual' ? 'text-indigo-600' : 'opacity-80')}
+                        className={cx(
+                          'relative flex items-center gap-1 z-10 h-8 pr-4 pl-2 text-sm rounded-lg',
+                          createMode === 'manual' ? 'text-indigo-600' : 'opacity-80',
+                        )}
                         onClick={() => setCreateMode('manual')}
                       >
-                        <span className="inline-flex items-center gap-1">
-                          <Plus className="size-4" /> Manual
-                        </span>
+                        <Plus className="size-4" /> Manual
                       </button>
                     </div>
 
@@ -814,17 +916,12 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                       </div>
                       <div className="mt-2">
                         <div className="text-xs opacity-70 mb-1">Content (JSON or plain text)</div>
-                        <Textarea
-                          rows={6}
-                          placeholder="Paste structured JSON or free text."
-                          value={newContent}
-                          onChange={(e) => setNewContent(e.target.value)}
-                          loading={creating}
-                          shimmer={creating}
-                        />
+                        <Textarea rows={6} placeholder="Paste structured JSON or free text." value={newContent} onChange={(e) => setNewContent(e.target.value)} loading={creating} shimmer={creating} />
                       </div>
                       <div className="mt-3 flex justify-end">
-                        <Button onClick={createManualContext} loading={creating} loadingText="Creating…">Create Context</Button>
+                        <Button onClick={createManualContext} loading={creating} loadingText="Creating…">
+                          Create Context
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -856,7 +953,7 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                     </div>
                   ) : (
                     <ul className="list-disc pl-4 space-y-1">
-                      <li>Star favorites to pin them.</li>
+                      <li>Star favorites to pin them (only your own contexts).</li>
                       <li>Use Generate for fast boilerplates; Manual for full control.</li>
                       <li>Public contexts are visible to everyone; import them to edit.</li>
                     </ul>
@@ -867,22 +964,29 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
               {/* results */}
               <section className="min-w-0">
                 {isLoading ? (
-                  <ul className={cx(view === 'grid' ? 'grid items-stretch grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' : 'space-y-2')}>
+                  <ul className={cx(view === 'grid' ? 'grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3' : 'space-y-2')}>
                     {Array.from({ length: 9 }).map((_, i) => (
                       <li key={i} className="h-full">
-                        <div className="relative h-full rounded-2xl border p-3 bg-background/60 overflow-hidden">
+                        <div className="relative h-full rounded-2xl border bg-background/60 overflow-hidden p-4">
                           <ShimmerOverlay show />
-                          <div className="flex items-start gap-2 min-w-0">
-                            <Skeleton className="size-7 rounded-lg" />
+                          <div className="flex items-start gap-3">
+                            <Skeleton className="size-8 rounded-lg" />
                             <div className="min-w-0 flex-1">
-                              <Skeleton className="h-4 w-3/5 mb-2" />
-                              <Skeleton className="h-3 w-11/12 mb-1.5" />
-                              <Skeleton className="h-3 w-4/5" />
-                              <div className="mt-2 flex gap-1.5">
-                                <Skeleton className="h-5 w-12 rounded-full" />
+                              <Skeleton className="h-4 w-1/2 mb-2" />
+                              <Skeleton className="h-3 w-4/5 mb-1.5" />
+                              <Skeleton className="h-3 w-3/5" />
+                              <div className="mt-3 flex gap-1.5">
                                 <Skeleton className="h-5 w-16 rounded-full" />
-                                <Skeleton className="h-5 w-10 rounded-full" />
+                                <Skeleton className="h-5 w-12 rounded-full" />
+                                <Skeleton className="h-5 w-20 rounded-full" />
                               </div>
+                            </div>
+                          </div>
+                          <div className="mt-4 flex items-center justify-between">
+                            <Skeleton className="h-8 w-24 rounded-md" />
+                            <div className="flex gap-2">
+                              <Skeleton className="size-8 rounded-md" />
+                              <Skeleton className="size-8 rounded-md" />
                             </div>
                           </div>
                         </div>
@@ -890,9 +994,12 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                     ))}
                   </ul>
                 ) : filtered.length === 0 ? (
-                  <div className="p-6 text-sm opacity-70 border rounded-xl text-center">No contexts found. Try adjusting search or tags.</div>
+                  <div className="p-8 text-sm border rounded-2xl bg-background/60 text-center">
+                    <div className="font-medium mb-1">No contexts found</div>
+                    <div className="opacity-70">Try adjusting your search or filters.</div>
+                  </div>
                 ) : view === 'grid' ? (
-                  <ul className="grid items-stretch grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <ul className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 items-stretch">
                     {filtered.map((c) => {
                       const structured = parseStructured(c.content);
                       const title = cleanTitle(structured?.title || c.name);
@@ -905,112 +1012,97 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                       const unpubBusy = c.publicId ? pending.unpub.has(c.publicId) : false;
                       const impBusy = c.publicId ? pending.imp.has(c.publicId) : false;
 
+                      const starDisabled = scope === 'public' || !c.owner;
+
                       return (
                         <li key={c.id} className="h-full">
-                          <div
-                            className="group relative h-full rounded-2xl border p-3 bg-background/70 hover:bg-background/90 transition flex flex-col"
-                            onClick={() => setActiveId(c.id)}
+                          <article
+                            className={cx(
+                              'group relative h-full rounded-2xl border bg-background/70 transition shadow-sm hover:shadow-md',
+                              'flex flex-col p-3',
+                            )}
                             role="button"
                             tabIndex={0}
+                            onClick={() => setActiveId(c.id)}
                             onKeyDown={(e) => e.key === 'Enter' && setActiveId(c.id)}
                           >
-                            <div className="flex items-start gap-2 min-w-0">
-                              <div className="grid place-items-center rounded-lg border size-7 shrink-0 text-foreground/70">
+                            {/* header */}
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="grid place-items-center rounded-lg border size-8 shrink-0 text-foreground/70">
                                 <LibraryBig className="size-4" />
                               </div>
-                              <div className="min-w-0 flex-1 mb-6">
+                              <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <div className="font-medium truncate">{title}</div>
+                                  <h3 className="text-sm font-semibold truncate">{title}</h3>
                                   {c.owner && (
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700">You</span>
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                                      You
+                                    </span>
                                   )}
                                   {isPublished && (
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">Public</span>
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                                      Public
+                                    </span>
                                   )}
                                 </div>
-                                <div className="text-xs opacity-70 line-clamp-2 mt-0.5">{structured?.description || c.description || '—'}</div>
-                                {c.tags?.length > 0 && (
-                                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                    {c.tags.slice(0, 6).map((t) => (
-                                      <span
-                                        key={t}
-                                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]"
-                                        style={{ background: colorFromTag(t), borderColor: 'transparent' }}
-                                      >
-                                        #{t}
-                                      </span>
-                                    ))}
-                                    {c.tags.length > 6 && <Badge variant="outline" className="text-[10px] opacity-70">+{c.tags.length - 6}</Badge>}
-                                  </div>
-                                )}
+                                <p className="mt-0.5 text-xs opacity-70 line-clamp-3">{structured?.description || c.description || '—'}</p>
                               </div>
                             </div>
 
-                            <div className="mt-2" />
+                            {/* tags */}
+                            {c.tags?.length > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-1.5">
+                                {c.tags.slice(0, 5).map((t) => (
+                                  <span key={t} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]" style={{ background: colorFromTag(t), borderColor: 'transparent' }}>
+                                    #{t}
+                                  </span>
+                                ))}
+                                {c.tags.length > 5 && (
+                                  <Badge variant="outline" className="text-[10px] opacity-70">
+                                    +{c.tags.length - 5}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
 
-                            <div className="absolute right-2 bottom-2 flex items-center gap-1">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className={cx('size-7', c.liked ? 'text-yellow-500' : 'text-foreground/60')}
-                                    onClick={(e) => { e.stopPropagation(); if (!likeBusy) toggleLike(c.id, !!c.liked); }}
-                                    aria-label={c.liked ? 'Unstar' : 'Star'}
-                                    loading={likeBusy}
-                                  >
-                                    <Star className={cx('size-4', c.liked && 'fill-yellow-500')} />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>{c.liked ? 'Unstar' : 'Star'}</TooltipContent>
-                              </Tooltip>
-
+                            {/* footer */}
+                            <div className="mt-auto pt-2 flex items-center justify-between">
+                              {/* Primary CTA */}
                               {c.owner ? (
-                                <>
-                                  {c.publicId ? (
-                                     <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="size-7"
-                                      onClick={(e) => { e.stopPropagation(); if (!unpubBusy) unpublishContext(c.publicId!); }}
-                                      loading={unpubBusy}
-                                      loadingText="…"
-                                    >
-                                      <BookDashedIcon className="size-4" /> 
-                                    </Button>
-                                    </TooltipTrigger>
-                                <TooltipContent>{"Unpublish"}</TooltipContent>
-                              </Tooltip>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7"
-                                      onClick={(e) => { e.stopPropagation(); if (!pubBusy) publishContext(c.id); }}
-                                      loading={pubBusy}
-                                      loadingText="…"
-                                    >
-                                      Publish
-                                    </Button>
-                                  )}
+                                isPublished ? (
                                   <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="size-7 text-rose-500"
-                                    onClick={(e) => { e.stopPropagation(); if (!delBusy) deleteContext(c.id); }}
-                                    aria-label="Delete"
-                                    loading={delBusy}
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!unpubBusy) unpublishContext(c.publicId!);
+                                    }}
+                                    loading={unpubBusy}
+                                    loadingText="…"
                                   >
-                                    <Trash2 className="size-4" />
+                                    Unpublish
                                   </Button>
-                                </>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!pubBusy) publishContext(c.id);
+                                    }}
+                                    loading={pubBusy}
+                                    loadingText="…"
+                                  >
+                                    Publish
+                                  </Button>
+                                )
                               ) : canImport ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="h-7"
+                                  className="h-8 text-xs"
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
@@ -1026,9 +1118,58 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                                 >
                                   Import
                                 </Button>
-                              ) : null}
+                              ) : (
+                                <span className="text-[11px] opacity-60">Shared</span>
+                              )}
+
+                              {/* Action bar */}
+                              <div className="flex items-center gap-1.5">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className={cx('size-8', c.liked ? 'text-yellow-500' : 'text-foreground/60')}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (!starDisabled && !likeBusy) toggleLike(c.id, !!c.liked);
+                                      }}
+                                      aria-label={c.liked ? 'Unstar' : 'Star'}
+                                      loading={likeBusy}
+                                      disabled={starDisabled}
+                                    >
+                                      <Star className={cx('size-4', c.liked && 'fill-yellow-500')} />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>{starDisabled ? 'Star from Mine/All' : c.liked ? 'Unstar' : 'Star'}</TooltipContent>
+                                </Tooltip>
+
+                                {c.owner && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-8 text-rose-500"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (!delBusy) deleteContext(c.id);
+                                        }}
+                                        aria-label="Delete"
+                                        loading={delBusy}
+                                      >
+                                        <Trash2 className="size-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Delete</TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
                             </div>
-                          </div>
+
+                            {/* hover ring */}
+                            <span className="pointer-events-none absolute inset-0 rounded-2xl ring-0 ring-indigo-500/0 group-hover:ring-2 group-hover:ring-indigo-500/20 transition" />
+                          </article>
                         </li>
                       );
                     })}
@@ -1047,20 +1188,54 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                       const unpubBusy = c.publicId ? pending.unpub.has(c.publicId) : false;
                       const impBusy = c.publicId ? pending.imp.has(c.publicId) : false;
 
+                      const starDisabled = scope === 'public' || !c.owner;
+
                       return (
                         <li key={c.id}>
-                          <div className="group relative rounded-2xl border px-3 py-2.5 bg-background/70 hover:bg-background/90 transition" onClick={() => setActiveId(c.id)}>
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="grid place-items-center rounded-lg border size-7 shrink-0 text-foreground/70"><LibraryBig className="size-4" /></div>
+                          <article
+                            className="group relative rounded-2xl border bg-background/70 hover:bg-background/90 transition px-4 py-3"
+                            onClick={() => setActiveId(c.id)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => e.key === 'Enter' && setActiveId(c.id)}
+                          >
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="grid place-items-center rounded-lg border size-7 shrink-0 text-foreground/70">
+                                <LibraryBig className="size-4" />
+                              </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <div className="font-medium truncate">{title}</div>
-                                  {c.owner && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700">You</span>}
-                                  {isPublished && <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">Public</span>}
+                                  <h3 className="text-sm font-semibold truncate">{title}</h3>
+                                  {c.owner && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                                      You
+                                    </span>
+                                  )}
+                                  {isPublished && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                                      Public
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="text-xs opacity-70 line-clamp-1">{structured?.description || c.description || '—'}</div>
+                                <p className="text-xs opacity-70 line-clamp-2">{structured?.description || c.description || '—'}</p>
+
+                                {c.tags?.length > 0 && (
+                                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                    {c.tags.slice(0, 5).map((t) => (
+                                      <span key={t} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]" style={{ background: colorFromTag(t), borderColor: 'transparent' }}>
+                                        #{t}
+                                      </span>
+                                    ))}
+                                    {c.tags.length > 5 && (
+                                      <Badge variant="outline" className="text-[10px] opacity-70">
+                                        +{c.tags.length - 5}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
                               </div>
 
+                              {/* compact action bar */}
                               <div className="flex items-center gap-1 ml-2">
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -1068,14 +1243,18 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                                       size="icon"
                                       variant="ghost"
                                       className={cx('size-7', c.liked ? 'text-yellow-500' : 'text-foreground/60')}
-                                      onClick={(e) => { e.stopPropagation(); if (!likeBusy) toggleLike(c.id, !!c.liked); }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (!starDisabled && !likeBusy) toggleLike(c.id, !!c.liked);
+                                      }}
                                       aria-label={c.liked ? 'Unstar' : 'Star'}
                                       loading={likeBusy}
+                                      disabled={starDisabled}
                                     >
                                       <Star className={cx('size-4', c.liked && 'fill-yellow-500')} />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>{c.liked ? 'Unstar' : 'Star'}</TooltipContent>
+                                  <TooltipContent>{starDisabled ? 'Star from Mine/All' : c.liked ? 'Unstar' : 'Star'}</TooltipContent>
                                 </Tooltip>
 
                                 {c.owner ? (
@@ -1085,7 +1264,10 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                                         size="sm"
                                         variant="outline"
                                         className="h-7"
-                                        onClick={(e) => { e.stopPropagation(); if (!unpubBusy) unpublishContext(c.publicId!); }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (!unpubBusy) unpublishContext(c.publicId!);
+                                        }}
                                         loading={unpubBusy}
                                         loadingText="…"
                                       >
@@ -1096,7 +1278,10 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                                         size="sm"
                                         variant="outline"
                                         className="h-7"
-                                        onClick={(e) => { e.stopPropagation(); if (!pubBusy) publishContext(c.id); }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (!pubBusy) publishContext(c.id);
+                                        }}
                                         loading={pubBusy}
                                         loadingText="…"
                                       >
@@ -1107,7 +1292,10 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                                       size="icon"
                                       variant="ghost"
                                       className="size-7 text-rose-500"
-                                      onClick={(e) => { e.stopPropagation(); if (!delBusy) deleteContext(c.id); }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (!delBusy) deleteContext(c.id);
+                                      }}
                                       aria-label="Delete"
                                       loading={delBusy}
                                     >
@@ -1137,7 +1325,7 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
                                 ) : null}
                               </div>
                             </div>
-                          </div>
+                          </article>
                         </li>
                       );
                     })}
@@ -1147,139 +1335,345 @@ const importPublicContext = React.useCallback(async (publicId: string) => {
 
               {/* inspector */}
               <aside className="hidden lg:block lg:sticky lg:top-4 lg:self-start">
-                <div className="relative rounded-2xl border bg-background/70 backdrop-blur p-3 min-h-[280px]">
-                  {!active ? (
-                    isLoading ? (
-                      <div className="space-y-3">
-                        <div className="flex items-start gap-2">
-                          <Skeleton className="size-10 rounded-lg" />
-                          <div className="flex-1">
-                            <Skeleton className="h-4 w-3/5 mb-2" />
-                            <Skeleton className="h-3 w-1/2" />
+                <div className="relative rounded-2xl border bg-background/70 backdrop-blur p-0 overflow-hidden">
+                  {/* gradient frame */}
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500/40 via-fuchsia-500/40 to-transparent" />
+                  {/* ambient blobs */}
+                  <div className="pointer-events-none absolute -top-24 -right-24 size-56 rounded-full bg-indigo-500/10 blur-3xl" />
+                  <div className="pointer-events-none absolute -bottom-24 -left-24 size-56 rounded-full bg-fuchsia-500/10 blur-3xl" />
+
+                  <div className="p-3">
+                    {!active ? (
+                      isLoading ? (
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-2">
+                            <Skeleton className="size-10 rounded-lg" />
+                            <div className="flex-1">
+                              <Skeleton className="h-4 w-3/5 mb-2" />
+                              <Skeleton className="h-3 w-1/2" />
+                            </div>
+                            <Skeleton className="size-8 rounded-md" />
                           </div>
-                          <Skeleton className="size-8 rounded-md" />
-                        </div>
-                        <Skeleton className="h-3 w-full" />
-                        <Skeleton className="h-3 w-4/5" />
-                        <div className="flex gap-2 mt-2">
-                          <Skeleton className="h-8 w-28" />
-                          <Skeleton className="h-8 w-32" />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-sm opacity-70">Select a context to preview details.</div>
-                    )
-                  ) : (
-                    <>
-                      <div className="flex items-start gap-2">
-                        <div className="grid place-items-center rounded-lg border size-10 shrink-0 text-foreground/70">
-                          <LibraryBig className="size-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold truncate">{cleanTitle(parseStructured(active.content)?.title || active.name)}</div>
-                          <div className="text-xs opacity-70">{active.owner ? 'Owned by you' : 'Shared'}{active.publicId ? ' • Public' : ''}</div>
-                        </div>
-                        <Button size="icon" variant="ghost" onClick={() => setActiveId(null)}><X className="size-4" /></Button>
-                      </div>
-
-                      <div className="mt-2 text-sm opacity-80">{parseStructured(active.content)?.description || active.description || '—'}</div>
-
-                      {active.tags?.length ? (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {active.tags.map((t) => (
-                            <span key={t} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]" style={{ background: colorFromTag(t), borderColor: 'transparent' }}>
-                              #{t}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {(() => {
-                        const sc = parseStructured(active.content);
-                        if (!sc) return null;
-                        return (
-                          <div className="mt-3 grid gap-2">
-                            {sc.background_goals?.length ? (
-                              <div>
-                                <div className="text-[11px] font-medium opacity-70 mb-1">Goals</div>
-                                <ul className="text-[12px] space-y-1 list-disc pl-4">{sc.background_goals.map((g, i) => <li key={i}>{g}</li>)}</ul>
-                              </div>
-                            ) : null}
-                            {sc.example_prompts?.length ? (
-                              <div>
-                                <div className="text-[11px] font-medium opacity-70 mb-1">Examples</div>
-                                <ul className="text-[12px] space-y-1 list-disc pl-4">{sc.example_prompts.map((g, i) => <li key={i} className="break-words">{g}</li>)}</ul>
-                              </div>
-                            ) : null}
+                          <Skeleton className="h-3 w-full" />
+                          <Skeleton className="h-3 w-4/5" />
+                          <div className="flex gap-2 mt-2">
+                            <Skeleton className="h-8 w-28" />
+                            <Skeleton className="h-8 w-32" />
                           </div>
-                        );
-                      })()}
+                        </div>
+                      ) : (
+                        /* pretty empty state */
+                        <div className="relative h-full grid place-items-center text-center p-6">
+                          <div className="max-w-[95%] space-y-5">
+                            <div className="mx-auto grid place-items-center">
+                              <div className="relative">
+                                <div className="absolute -inset-3 rounded-2xl bg-gradient-to-tr from-indigo-500/20 to-fuchsia-500/20 blur-xl" />
+                                <div className="relative grid place-items-center rounded-xl border bg-background/80 border-indigo-500/30 text-indigo-600 size-14 shadow-sm">
+                                  <LumachorMark />
+                                </div>
+                              </div>
+                            </div>
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Button size="sm" variant="outline" onClick={() => {
-                          navigator.clipboard.writeText(active.content).then(
-                            () => toast({ type: 'success', description: 'Copied JSON/text content.' }),
-                            () => toast({ type: 'error', description: 'Copy failed.' }),
-                          );
-                        }}>
-                          <Copy className="mr-2 size-4" /> Copy content
-                        </Button>
-                        {active.publicId ? (
-                          <Button size="sm" variant="outline" onClick={() => {
-                            const url = `${location.origin}/public/${active.publicId}`;
-                            navigator.clipboard.writeText(url);
-                            toast({ type: 'success', description: 'Public link copied.' });
-                          }}>
-                            <LinkIcon className="mr-2 size-4" /> Copy public link
-                          </Button>
-                        ) : null}
-                        <Button size="sm" onClick={() => void openInChat(active)}>Use in chat</Button>
-                        <Button
-                          size="sm"
-                          variant={active.liked ? 'default' : 'outline'}
-                          onClick={() => toggleLike(active.id, !!active.liked)}
-                          loading={pending.like.has(active.id)}
-                        >
-                          <Star className={cx('mr-2 size-4', active.liked && 'fill-yellow-500 text-yellow-500')} />
-                          {active.liked ? 'Starred' : 'Star'}
-                        </Button>
-                        {active.owner ? (
-                          <>
-                            {active.publicId ? (
-                              <Button size="sm" variant="outline" onClick={() => unpublishContext(active.publicId!)} loading={pending.unpub.has(active.publicId!)} loadingText="…">
-                                <UploadCloud className="mr-2 size-4" /> Unpublish
+                            <div>
+                              <h3 className="text-base font-semibold">No context selected</h3>
+                              <p className="text-sm opacity-70 mt-0.5">Pick a card to preview details — or create/import something new.</p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-center gap-2">
+                              <Button size="sm" className="text-xs" variant="outline" onClick={() => setScope('public')}>
+                                <Search className="mr-2 size-4" />
+                                Browse Public
                               </Button>
-                            ) : (
-                              <Button size="sm" variant="outline" onClick={() => publishContext(active.id)} loading={pending.pub.has(active.id)} loadingText="…">
-                                <UploadCloud className="mr-2 size-4" /> Publish
+                              <Button size="sm" className="text-xs" onClick={() => setCreateOpen(true)}>
+                                <Plus className="mr-2 size-4" />
+                                New Context
                               </Button>
+                              {filtered.length > 0 ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-xs"
+                                  onClick={() => setActiveId(filtered[Math.floor(Math.random() * filtered.length)].id)}
+                                >
+                                  <Sparkles className="mr-2 size-4" />
+                                  Surprise me
+                                </Button>
+                              ) : null}
+                            </div>
+
+                            {allTagsRaw.length > 0 && (
+                              <div className="mt-1">
+                                <div className="text-[11px] opacity-70 mb-1">Try filtering by a tag</div>
+                                <div className="flex flex-wrap justify-center gap-1.5">
+                                  {allTagsRaw.slice(0, 8).map((t) => (
+                                    <button
+                                      key={t}
+                                      onClick={() => setSelectedTags((prev) => (prev.includes(t) ? prev : [...prev, t]))}
+                                      className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] transition hover:bg-foreground/5"
+                                      style={{ background: colorFromTag(t), borderColor: 'transparent' }}
+                                    >
+                                      #{t}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
                             )}
-                            <Button size="sm" variant="destructive" onClick={() => deleteContext(active.id)} loading={pending.del.has(active.id)} loadingText="…">
-                              <Trash2 className="mr-2 size-4" /> Delete
-                            </Button>
-                          </>
-                        ) : active.publicId ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              try {
-                                const imported = await importPublicContext(active.publicId!);
-                                setActiveId(imported.id);
-                                toast({ type: 'success', description: 'Added to your library.' });
-                              } catch (err: any) {
-                                toast({ type: 'error', description: err?.message || 'Import failed' });
-                              }
-                            }}
-                            loading={pending.imp.has(active.publicId!)}
-                            loadingText="…"
-                          >
-                            Import
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-left">
+                              <div className="rounded-xl border p-2 bg-background/60">
+                                <div className="flex items-center gap-2 text-xs font-medium">
+                                  <Search className="size-3.5 opacity-70" />
+                                  Quick preview
+                                </div>
+                                <div className="text-[11px] opacity-70 mt-1">Search titles, descriptions, or goals.</div>
+                              </div>
+                              <div className="rounded-xl border p-2 bg-background/60">
+                                <div className="flex items-center gap-2 text-xs font-medium">
+                                  <Star className="size-3.5 opacity-70" />
+                                  Pin favorites
+                                </div>
+                                <div className="text-[11px] opacity-70 mt-1">
+                                  Star your own contexts from <span className="font-medium">Mine</span> or <span className="font-medium">All</span>.
+                                </div>
+                              </div>
+                              <div className="rounded-xl border p-2 bg-background/60">
+                                <div className="flex items-center gap-2 text-xs font-medium">
+                                  <Sparkles className="size-3.5 opacity-70" />
+                                  Generate fast
+                                </div>
+                                <div className="text-[11px] opacity-70 mt-1">
+                                  Use <span className="font-medium">New → Generate</span> for a head start.
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-[11px] opacity-60">Pro tip: ↑/↓ + Enter to open inspector actions</div>
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <>
+                        {/* header */}
+                        <div className="flex items-start gap-3">
+                          <div className="grid place-items-center rounded-lg border size-11 shrink-0 text-foreground/70 bg-background/80">
+                            <LibraryBig className="size-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <h3 className="font-semibold truncate">{cleanTitle(parseStructured(active.content)?.title || active.name)}</h3>
+                              {active.owner && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700">You</span>
+                              )}
+                              {active.publicId && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">Public</span>
+                              )}
+                            </div>
+                            <div className="text-[11px] opacity-70 mt-0.5 flex flex-wrap items-center gap-2">
+                              <span>{active.owner ? 'Owned by you' : 'Shared'}</span>
+                              {active.createdAt ? <span className="opacity-60">• Created {new Date(active.createdAt).toLocaleDateString()}</span> : null}
+                              {active.tags?.length ? <span className="opacity-60">• {active.tags.length} tag{active.tags.length > 1 ? 's' : ''}</span> : null}
+                            </div>
+                          </div>
+                          <Button size="icon" variant="ghost" onClick={() => setActiveId(null)}>
+                            <X className="size-4" />
                           </Button>
+                        </div>
+
+                        {/* separator */}
+                        <div className="my-3 h-px bg-foreground/10" />
+
+                        {/* description */}
+                        <p className="text-sm opacity-80">{parseStructured(active.content)?.description || active.description || '—'}</p>
+
+                        {/* tags */}
+                        {active.tags?.length ? (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {active.tags.map((t) => (
+                              <span key={t} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]" style={{ background: colorFromTag(t), borderColor: 'transparent' }}>
+                                #{t}
+                              </span>
+                            ))}
+                          </div>
                         ) : null}
-                      </div>
-                    </>
-                  )}
+
+                        {/* structured bits */}
+                        {(() => {
+                          const sc = parseStructured(active.content);
+                          if (!sc) return null;
+                          return (
+                            <div className="mt-3 grid gap-3">
+                              {sc.background_goals?.length ? (
+                                <div className="rounded-xl border bg-background/60 p-2.5">
+                                  <div className="text-[11px] font-medium opacity-70 mb-1">Goals</div>
+                                  <ul className="text-[12px] space-y-1 list-disc pl-4">{sc.background_goals.map((g, i) => <li key={i}>{g}</li>)}</ul>
+                                </div>
+                              ) : null}
+                              {sc.example_prompts?.length ? (
+                                <div className="rounded-xl border bg-background/60 p-2.5">
+                                  <div className="text-[11px] font-medium opacity-70 mb-1">Examples</div>
+                                  <ul className="text-[12px] space-y-1 list-disc pl-4">{sc.example_prompts.map((g, i) => <li key={i} className="break-words">{g}</li>)}</ul>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
+
+                        {/* action bar */}
+                        <div className="mt-3 rounded-xl border bg-background/60 p-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button size="sm" onClick={() => void openInChat(active)} className="h-8">
+                              Use in chat
+                            </Button>
+
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(active.content).then(
+                                        () => toast({ type: 'success', description: 'Copied JSON/text content.' }),
+                                        () => toast({ type: 'error', description: 'Copy failed.' }),
+                                      );
+                                    }}
+                                  >
+                                    <Copy className="size-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Copy context</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            {active.publicId ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8"
+                                      onClick={() => {
+                                        const url = `${location.origin}/public/${active.publicId}`;
+                                        navigator.clipboard.writeText(url);
+                                        toast({ type: 'success', description: 'Public link copied.' });
+                                      }}
+                                    >
+                                      <LinkIcon className="size-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Copy link</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : null}
+
+                            {/* Star disabled for Public scope or non-owned */}
+                            <Button
+                              size="sm"
+                              variant={active.liked ? 'default' : 'outline'}
+                              className="h-8"
+                              onClick={() => {
+                                if (!(scope === 'public' || !active.owner)) toggleLike(active.id, !!active.liked);
+                              }}
+                              loading={pending.like.has(active.id)}
+                              disabled={scope === 'public' || !active.owner}
+                              title={scope === 'public' || !active.owner ? 'Star from Mine/All' : undefined}
+                            >
+                              <Star className={cx('size-4', active.liked && 'fill-yellow-500 text-yellow-500')} />
+                            </Button>
+
+                            <div className="ml-auto flex items-center gap-2">
+                              {active.owner ? (
+                                <>
+                                  {active.publicId ? (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8"
+                                            onClick={() => unpublishContext(active.publicId!)}
+                                            loading={pending.unpub.has(active.publicId!)}
+                                            loadingText="…"
+                                          >
+                                            <UploadCloud className="size-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Unpublish context</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  ) : (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8"
+                                            onClick={() => publishContext(active.id)}
+                                            loading={pending.pub.has(active.id)}
+                                            loadingText="…"
+                                          >
+                                            <UploadCloud className="size-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Publish context</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="destructive"
+                                          className="h-8"
+                                          onClick={() => deleteContext(active.id)}
+                                          loading={pending.del.has(active.id)}
+                                          loadingText="…"
+                                        >
+                                          <Trash2 className="size-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Delete context</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </>
+                              ) : active.publicId ? (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8"
+                                        onClick={async () => {
+                                          try {
+                                            const imported = await importPublicContext(active.publicId!);
+                                            setActiveId(imported.id);
+                                            toast({ type: 'success', description: 'Added to your library.' });
+                                          } catch (err: any) {
+                                            toast({ type: 'error', description: err?.message || 'Import failed' });
+                                          }
+                                        }}
+                                        loading={pending.imp.has(active.publicId!)}
+                                        loadingText="…"
+                                      >
+                                        <Download className="size-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Import context</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </aside>
             </div>

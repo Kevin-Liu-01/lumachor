@@ -443,7 +443,7 @@ export default function Library() {
       return {
         ...base,
         owner: !!mineRow,
-        liked: Boolean(base.liked || starredSet.has(id)),
+        liked: Boolean(base?.liked || starredSet?.has(id)),
         publicId: pubRow?.publicId ?? base.publicId ?? null,
         publishedAt: pubRow?.publishedAt ?? base.publishedAt ?? null,
       };

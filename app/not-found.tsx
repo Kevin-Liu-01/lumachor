@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { ArrowLeft, Home, Search, LibraryBig, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 
 export default function NotFound() {
   return (
@@ -29,41 +29,38 @@ export default function NotFound() {
 
           {/* action row */}
           <div className="mt-6 flex flex-wrap items-center gap-2">
-            <Button asChild>
-              <Link href="/">
-                <span className="inline-flex items-center">
-                  <Home className="mr-2 size-4" />
-                  <span>Go Home</span>
-                </span>
-              </Link>
-            </Button>
+            <Link
+              href="/"
+              className={`${buttonVariants({ variant: 'default' })} inline-flex items-center`}
+            >
+              <Home className="mr-2 size-4" />
+              <span>Go Home</span>
+            </Link>
 
-            <Button variant="outline" asChild>
-              <Link href="/search">
-                <span className="inline-flex items-center">
-                  <Search className="mr-2 size-4" />
-                  <span>Search Chats</span>
-                </span>
-              </Link>
-            </Button>
+            <Link
+              href="/search"
+              className={`${buttonVariants({ variant: 'outline' })} inline-flex items-center`}
+            >
+              <Search className="mr-2 size-4" />
+              <span>Search Chats</span>
+            </Link>
 
-            <Button variant="outline" asChild>
-              <Link href="/library">
-                <span className="inline-flex items-center">
-                  <LibraryBig className="mr-2 size-4" />
-                  <span>Open Library</span>
-                </span>
-              </Link>
-            </Button>
+            <Link
+              href="/library"
+              className={`${buttonVariants({ variant: 'outline' })} inline-flex items-center`}
+            >
+              <LibraryBig className="mr-2 size-4" />
+              <span>Open Library</span>
+            </Link>
 
-            <Button variant="ghost" asChild>
-              <Link href="#" onClick={() => history.back()}>
-                <span className="inline-flex items-center">
-                  <ArrowLeft className="mr-2 size-4" />
-                  <span>Go Back</span>
-                </span>
-              </Link>
-            </Button>
+            <Link
+              href="#"
+              onClick={(e) => { e.preventDefault(); history.back(); }}
+              className={`${buttonVariants({ variant: 'ghost' })} inline-flex items-center`}
+            >
+              <ArrowLeft className="mr-2 size-4" />
+              <span>Go Back</span>
+            </Link>
           </div>
         </div>
 
@@ -79,11 +76,12 @@ export default function NotFound() {
               <p className="mt-1 text-sm opacity-70">{card.desc}</p>
               {card.href && (
                 <div className="mt-3">
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href={card.href}>
-                      <span>Open</span>
-                    </Link>
-                  </Button>
+                  <Link
+                    href={card.href}
+                    className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                  >
+                    <span>Open</span>
+                  </Link>
                 </div>
               )}
             </div>

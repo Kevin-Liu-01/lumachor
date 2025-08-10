@@ -21,7 +21,8 @@ function LumachorLogo() {
   return (
     <div className="sm:hidden flex items-center gap-2 mr-4">
       <div className="text-indigo-600">
-        <LumachorMark />
+         <div className="dark:hidden"><LumachorMark variant="white" /></div>
+         <div className="hidden dark:flex"><LumachorMark /></div>
       </div>
       <span className="text-sm font-extrabold tracking-wide">LUMACHOR</span>
     </div>
@@ -71,7 +72,7 @@ function PureChatHeader({
           {/* <SidebarToggle /> */}
           <LumachorLogo />
 
-        
+          
           {/* Middle rail: model + visibility (hidden when readonly) */}
           {!isReadonly && (
             <div
@@ -90,20 +91,23 @@ function PureChatHeader({
 
           {/* Right: Contexts trigger */}
           {!isReadonly && (
-            <div className="ml-auto flex items-center gap-4">
+            <div className="ml-auto flex items-center gap-3 sm:gap-4">
+              {/* Collapse/Expand toggle */}
+          <SidebarToggle />
+        
               {/* New Chat (compact on mobile) */}
           {(!open || windowWidth < 768) && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="outline"
-                  className="ml-1 p-2 h-8"
+                  className="sm:ml-1 p-2 h-8"
                   onClick={() => {
                     router.push('/');
                     router.refresh();
                   }}
                 >
-                  <Plus className="mr-1 size-4" />
+                  <Plus className="sm:mr-1 size-4" />
                   <span className="hidden md:inline">New Chat</span>
                 </Button>
               </TooltipTrigger>

@@ -22,9 +22,9 @@ export function SidebarToggle({
           data-testid="sidebar-toggle-button"
           onClick={toggleSidebar}
           variant="outline"
-          className="md:px-2 md:h-fit"
+          className="md:h-fit p-2 h-8 sm:hidden"
         >
-          <SidebarLeftIcon size={16} />
+          <SidebarLeftIcon size={14} />
         </Button>
       </TooltipTrigger>
       <TooltipContent align="start">Toggle Sidebar</TooltipContent>

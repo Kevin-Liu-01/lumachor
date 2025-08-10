@@ -58,7 +58,8 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   className="rounded-xl p-1.5  text-indigo-600 hover:bg-indigo-500/10"
                   aria-label="Expand sidebar"
                 >
-                  <LumachorMark />
+                  <div className="dark:hidden"><LumachorMark variant="white" /></div>
+                  <div className="hidden dark:flex"><LumachorMark /></div>
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">Expand</TooltipContent>
@@ -67,10 +68,11 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             <Link
               href="/"
               onClick={() => setOpenMobile(false)}
-              className="flex items-center gap-2 rounded-xl p-1.5 hover:bg-gradient-to-r hover:from-indigo-500/[0.08] hover:to-fuchsia-500/[0.08] transition"
+              className="flex items-center gap-2 rounded-xl p-1.5 pr-3 hover:bg-gradient-to-r hover:from-indigo-500/[0.08] hover:to-fuchsia-500/[0.08] transition"
             >
               <div className="text-indigo-600">
-                <LumachorMark />
+                <div className="dark:hidden"><LumachorMark variant="white" /></div>
+                <div className="hidden dark:flex"><LumachorMark /></div>
               </div>
               <span className={`${isCollapsed?'hidden':''} text-sm font-extrabold tracking-wide group-data-[collapsible=icon]:hidden`}>
                 LUMACHOR

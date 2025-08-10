@@ -495,7 +495,7 @@ const stateStyles: Record<PillState, { wrap: string; dot: string; stripe: string
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            className="absolute left-1/2 bottom-28 -translate-x-1/2 z-50"
+            className="absolute mb-12 left-1/2 bottom-28 -translate-x-1/2 z-50"
           >
             <Button
               data-testid="scroll-to-bottom-button"

@@ -304,7 +304,7 @@ function TagFilterBox({
       {/* Search row */}
       <div className="mt-2">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 size-4 opacity-60" />
+          <Search className="pointer-events-none z-20 absolute left-2 top-1/2 -translate-y-1/2 size-4 opacity-60" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -432,23 +432,42 @@ export default function Library() {
     return m;
   }, [pub]);
 
+  const starredMap = useMemo(() => {
+    const m = new Map<string, ContextRowWithMeta>();
+    for (const row of starred) m.set(row.id, row);
+    return m;
+  }, [starred]);
+
   const starredSet = useMemo(() => new Set(starred.map((s) => s.id)), [starred]);
 
+  const allIds = useMemo(
+    () => unique([...Array.from(mineMap.keys()), ...Array.from(pubMap.keys()), ...Array.from(starredMap.keys())]),
+    [mineMap, pubMap, starredMap],
+  );
+
   const universe: ContextRowWithMeta[] = useMemo(() => {
-    const ids = unique([...Array.from(mineMap.keys()), ...Array.from(pubMap.keys()), ...starred.map((s) => s.id)]);
-    return ids.map((id) => {
+    const rows: ContextRowWithMeta[] = [];
+    for (const id of allIds) {
       const mineRow = mineMap.get(id);
       const pubRow = pubMap.get(id);
-      const base = (mineRow ?? pubRow)!; // exists in at least one index
-      return {
+      const starRow = starredMap.get(id);
+
+      // Prefer owned, then starred payload, then public-only
+      const base = mineRow ?? starRow ?? pubRow;
+      if (!base) continue;
+
+      rows.push({
         ...base,
         owner: !!mineRow,
-        liked: Boolean(base?.liked || starredSet?.has(id)),
+        liked: starredSet.has(id) || !!base.liked,
         publicId: pubRow?.publicId ?? base.publicId ?? null,
         publishedAt: pubRow?.publishedAt ?? base.publishedAt ?? null,
-      };
-    });
-  }, [mineMap, pubMap, starred, starredSet]);
+        tags: base.tags ?? [],
+        description: base.description ?? null,
+      });
+    }
+    return rows;
+  }, [allIds, mineMap, pubMap, starredMap, starredSet]);
 
   const itemsByScope = useMemo(
     () => ({
@@ -465,7 +484,7 @@ export default function Library() {
   // Tags from current scope
   const allTagsRaw = useMemo(() => unique(scopeItems.flatMap((c) => c.tags || [])).sort(), [scopeItems]);
 
-  // Loading: ensure public meta is present where needed for pills
+  // Loading: ensure public meta is present where needed for "Public" pill consistency
   const isLoading =
     scope === 'public'
       ? loadingPublic
@@ -479,6 +498,7 @@ export default function Library() {
 
   const filtered = useMemo(() => {
     let items = scopeItems;
+
     if (query) {
       const q = query.toLowerCase();
       items = items.filter((c) => {
@@ -494,24 +514,29 @@ export default function Library() {
         return hay.includes(q);
       });
     }
+
     if (selectedTags.length > 0) {
       items = items.filter((c) => {
         const set = new Set((c.tags || []).map((t) => t.toLowerCase()));
         return selectedTags.some((t) => set.has(t.toLowerCase()));
       });
     }
+
+    const time = (d?: string) => (d ? new Date(d).getTime() || 0 : 0);
+
     items = [...items].sort((a, b) => {
       switch (sortKey) {
         case 'name':
           return a.name.localeCompare(b.name);
         case 'createdAt':
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          return time(b.createdAt) - time(a.createdAt);
         case 'stars':
           return Number(b.liked) - Number(a.liked);
         default:
           return 0;
       }
     });
+
     return items;
   }, [scopeItems, query, selectedTags, sortKey]);
 
@@ -931,7 +956,7 @@ export default function Library() {
           </section>
 
           {/* Main grid */}
-          <main className="mx-auto max-w-7xl p-4">
+          <main className="mx-auto max-w-7xl px-4 pb-4">
             <div className="grid grid-cols-1 lg:grid-cols-[260px,minmax(0,1fr),360px] gap-4">
               {/* left rail */}
               <div className="space-y-3 lg:sticky lg:top-4 lg:self-start">
@@ -1337,7 +1362,9 @@ export default function Library() {
               <aside className="hidden lg:block lg:sticky lg:top-4 lg:self-start">
                 <div className="relative rounded-2xl border bg-background/70 backdrop-blur p-0 overflow-hidden">
                   {/* gradient frame */}
-                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500/40 via-fuchsia-500/40 to-transparent" />
+                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-indigo-500/10 via-fuchsia-500/40 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-indigo-500/10 via-fuchsia-500/40 to-transparent" />
+
                   {/* ambient blobs */}
                   <div className="pointer-events-none absolute -top-24 -right-24 size-56 rounded-full bg-indigo-500/10 blur-3xl" />
                   <div className="pointer-events-none absolute -bottom-24 -left-24 size-56 rounded-full bg-fuchsia-500/10 blur-3xl" />
@@ -1369,7 +1396,8 @@ export default function Library() {
                               <div className="relative">
                                 <div className="absolute -inset-3 rounded-2xl bg-gradient-to-tr from-indigo-500/20 to-fuchsia-500/20 blur-xl" />
                                 <div className="relative grid place-items-center rounded-xl border bg-background/80 border-indigo-500/30 text-indigo-600 size-14 shadow-sm">
-                                  <LumachorMark />
+                                  <div className="dark:hidden"><LumachorMark variant="white" /></div>
+                                  <div className="hidden dark:flex"><LumachorMark variant="black" /></div>
                                 </div>
                               </div>
                             </div>
@@ -1381,11 +1409,11 @@ export default function Library() {
 
                             <div className="flex flex-wrap items-center justify-center gap-2">
                               <Button size="sm" className="text-xs" variant="outline" onClick={() => setScope('public')}>
-                                <Search className="mr-2 size-4" />
-                                Browse Public
+                                <Search className="mr-1 size-3" />
+                                Search Public
                               </Button>
-                              <Button size="sm" className="text-xs" onClick={() => setCreateOpen(true)}>
-                                <Plus className="mr-2 size-4" />
+                              <Button size="sm" variant="outline" className="text-xs" onClick={() => setCreateOpen(true)}>
+                                <Plus className="mr-1 size-3" />
                                 New Context
                               </Button>
                               {filtered.length > 0 ? (
@@ -1395,7 +1423,7 @@ export default function Library() {
                                   className="text-xs"
                                   onClick={() => setActiveId(filtered[Math.floor(Math.random() * filtered.length)].id)}
                                 >
-                                  <Sparkles className="mr-2 size-4" />
+                                  <Sparkles className="mr-1 size-3" />
                                   Surprise me
                                 </Button>
                               ) : null}

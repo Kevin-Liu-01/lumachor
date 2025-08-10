@@ -1,6 +1,6 @@
-// app/api/public-contexts/[id]/route.ts
+// app/(chat)/api/public-contexts/[id]/route.ts
 import 'server-only';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { auth } from '@/app/(auth)/auth';
 import { ChatSDKError } from '@/lib/errors';
 import { drizzle } from 'drizzle-orm/postgres-js';
@@ -13,19 +13,23 @@ function getDb() {
   return drizzle(client);
 }
 
-type RouteContext = { params: { id: string } };
-
-export async function DELETE(_req: NextRequest, { params }: RouteContext) {
+export async function DELETE(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return new ChatSDKError('unauthorized:chat').toResponse();
     }
 
-    const db = getDb();
-    const publicId = params.id;
+    // Robustly grab the dynamic [id] from the URL (no reliance on typed context)
+    const pathname = new URL(req.url).pathname;
+    const publicId = pathname.split('/').filter(Boolean).pop(); // last non-empty segment
+    if (!publicId) {
+      return new ChatSDKError('bad_request:database', 'Missing public context id').toResponse();
+    }
 
-    // find the public entry
+    const db = getDb();
+
+    // Find the public entry
     const [pub] = await db
       .select()
       .from(PublicContext)
@@ -36,7 +40,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
       return new ChatSDKError('bad_request:database', 'Public context not found').toResponse();
     }
 
-    // fetch its source context to validate ownership
+    // Fetch its source context to validate ownership
     const [ctx] = await db
       .select()
       .from(Context)
@@ -49,7 +53,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
 
     const userId = session.user.id as string;
 
-    // allow the publisher OR the original context owner to unpublish
+    // Allow the publisher OR the original context owner to unpublish
     if (pub.createdBy !== userId && ctx.createdBy !== userId) {
       return new ChatSDKError('unauthorized:chat', 'You can only unpublish your own context').toResponse();
     }

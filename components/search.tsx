@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import useSWR from 'swr';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
-import cx from 'classnames';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import cx from "classnames";
 import {
   Search as SearchIcon,
   ArrowRight,
@@ -21,20 +21,30 @@ import {
   Clock,
   Loader2,
   TextSearchIcon,
-} from 'lucide-react';
+} from "lucide-react";
 
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ShimmerOverlay, TopStripeLoader } from '@/components/ui/shimmer';
-import { fetcher } from '@/lib/utils';
-import LumachorMark from './lumachormark';
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ShimmerOverlay, TopStripeLoader } from "@/components/ui/shimmer";
+import { fetcher } from "@/lib/utils";
+import LumachorMark from "./lumachormark";
 
-type Result = { id: string; title: string; createdAt: string; lastMessageAt: string };
-type ViewMode = 'grid' | 'list';
-type SortKey = 'recent' | 'title';
-type Range = '24h' | '7d' | '30d' | 'all';
+type Result = {
+  id: string;
+  title: string;
+  createdAt: string;
+  lastMessageAt: string;
+};
+type ViewMode = "grid" | "list";
+type SortKey = "recent" | "title";
+type Range = "24h" | "7d" | "30d" | "all";
 
 function useDebounced<T>(value: T, delay = 250) {
   const [debounced, setDebounced] = useState(value);
@@ -52,7 +62,9 @@ function highlight(text: string, q: string) {
   return (
     <>
       {text.slice(0, i)}
-      <mark className="rounded px-0.5 bg-amber-500/30">{text.slice(i, i + q.length)}</mark>
+      <mark className="rounded px-0.5 bg-amber-500/30">
+        {text.slice(i, i + q.length)}
+      </mark>
       {text.slice(i + q.length)}
     </>
   );
@@ -63,13 +75,19 @@ export default function SearchPage() {
   const sp = useSearchParams();
 
   // URL-driven initial state
-  const initialQ = sp.get('q') || '';
+  const initialQ = sp.get("q") || "";
   const [q, setQ] = useState(initialQ);
   const dq = useDebounced(q, 250);
 
-  const [view, setView] = useState<ViewMode>((sp.get('view') as ViewMode) || 'grid');
-  const [sort, setSort] = useState<SortKey>((sp.get('sort') as SortKey) || 'recent');
-  const [range, setRange] = useState<Range>((sp.get('range') as Range) || 'all');
+  const [view, setView] = useState<ViewMode>(
+    (sp.get("view") as ViewMode) || "grid"
+  );
+  const [sort, setSort] = useState<SortKey>(
+    (sp.get("sort") as SortKey) || "recent"
+  );
+  const [range, setRange] = useState<Range>(
+    (sp.get("range") as Range) || "all"
+  );
 
   // SWR fetch (only when we have a debounced query)
   const { data, isLoading } = useSWR<{ results: Result[] }>(
@@ -85,16 +103,22 @@ export default function SearchPage() {
     const within = (ts: string) => {
       const t = new Date(ts).getTime();
       switch (range) {
-        case '24h': return now - t <= 24 * 3600 * 1000;
-        case '7d':  return now - t <= 7 * 24 * 3600 * 1000;
-        case '30d': return now - t <= 30 * 24 * 3600 * 1000;
-        default:    return true;
+        case "24h":
+          return now - t <= 24 * 3600 * 1000;
+        case "7d":
+          return now - t <= 7 * 24 * 3600 * 1000;
+        case "30d":
+          return now - t <= 30 * 24 * 3600 * 1000;
+        default:
+          return true;
       }
     };
 
-    let arr = src.filter(r => within(r.lastMessageAt || r.createdAt));
-    if (sort === 'title') {
-      arr = [...arr].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    let arr = src.filter((r) => within(r.lastMessageAt || r.createdAt));
+    if (sort === "title") {
+      arr = [...arr].sort((a, b) =>
+        (a.title || "").localeCompare(b.title || "")
+      );
     } else {
       arr = [...arr].sort(
         (a, b) =>
@@ -106,40 +130,54 @@ export default function SearchPage() {
   }, [data?.results, sort, range]);
 
   // open chat
-  const onOpen = useCallback((id: string) => {
-    router.push(`/chat/${id}`);
-  }, [router]);
+  const onOpen = useCallback(
+    (id: string) => {
+      router.push(`/chat/${id}`);
+    },
+    [router]
+  );
 
   // Enter -> open first
   const listRef = useRef<HTMLUListElement>(null);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && filtered.length > 0) {
+      if (e.key === "Enter" && filtered.length > 0) {
         e.preventDefault();
         onOpen(filtered[0].id);
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [filtered, onOpen]);
 
   // quick chips
-  const chips = ['todo', 'bug', 'design', 'plan', 'meeting', 'docs', 'draft', 'summary'];
+  const chips = [
+    "todo",
+    "bug",
+    "design",
+    "plan",
+    "meeting",
+    "docs",
+    "draft",
+    "summary",
+  ];
 
   // sync URL (q/view/sort/range)
   useEffect(() => {
     const params = new URLSearchParams();
-    if (q.trim()) params.set('q', q.trim());
-    if (view !== 'grid') params.set('view', view);
-    if (sort !== 'recent') params.set('sort', sort);
-    if (range !== 'all') params.set('range', range);
+    if (q.trim()) params.set("q", q.trim());
+    if (view !== "grid") params.set("view", view);
+    if (sort !== "recent") params.set("sort", sort);
+    if (range !== "all") params.set("range", range);
     const qs = params.toString();
-    router.replace(qs ? `/search?${qs}` : '/search');
+    router.replace(qs ? `/search?${qs}` : "/search");
   }, [q, view, sort, range, router]);
 
   const resultsLabel = dq
-    ? (isLoading ? 'Searching…' : `${filtered.length} result${filtered.length === 1 ? '' : 's'}`)
-    : 'Type to search';
+    ? isLoading
+      ? "Searching…"
+      : `${filtered.length} result${filtered.length === 1 ? "" : "s"}`
+    : "Type to search";
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -154,7 +192,10 @@ export default function SearchPage() {
 
           {/* Header */}
           <div className="mx-auto max-w-7xl px-4 py-8">
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
               <div className="flex items-end justify-between gap-4">
                 <div className="min-w-0">
                   <div className="inline-flex items-center gap-2">
@@ -164,17 +205,28 @@ export default function SearchPage() {
                         <TextSearchIcon className="size-5" />
                       </div>
                     </div>
-                    <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">Search your Chats</h1>
+                    <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
+                      Search your Chats
+                    </h1>
                   </div>
                   <p className="mt-1 text-sm md:text-base opacity-70">
-                    Find any chat by title or message content. Press{' '}
-                    <kbd className="px-1.5 py-0.5 rounded border bg-background/80">Enter</kbd> to open the top hit.
+                    Find any chat by title or message content. Press{" "}
+                    <kbd className="px-1.5 py-0.5 rounded border bg-background/80">
+                      Enter
+                    </kbd>{" "}
+                    to open the top hit.
                   </p>
                 </div>
 
                 <div className="hidden md:flex items-center gap-2 text-sm">
-                  {isLoading ? <Loader2 className="size-4 animate-spin opacity-70" /> : <Sparkles className="size-4 opacity-70" />}
-                  <span className="opacity-70" aria-live="polite">{resultsLabel}</span>
+                  {isLoading ? (
+                    <Loader2 className="size-4 animate-spin opacity-70" />
+                  ) : (
+                    <Sparkles className="size-4 opacity-70" />
+                  )}
+                  <span className="opacity-70" aria-live="polite">
+                    {resultsLabel}
+                  </span>
                 </div>
               </div>
 
@@ -187,9 +239,9 @@ export default function SearchPage() {
                     if (filtered[0]) onOpen(filtered[0].id);
                   }}
                   className={cx(
-                    'rounded-2xl border bg-background/80 backdrop-blur shadow-sm',
-                    'grid grid-cols-[auto,1fr,auto,auto] items-center gap-2 px-2',
-                    'h-14 md:h-16'
+                    "rounded-2xl border bg-background/80 backdrop-blur shadow-sm",
+                    "grid grid-cols-[auto,1fr,auto,auto] items-center gap-2 px-2",
+                    "h-14 md:h-16"
                   )}
                 >
                   {/* icon */}
@@ -214,7 +266,7 @@ export default function SearchPage() {
                       variant="ghost"
                       size="sm"
                       className="h-9"
-                      onClick={() => setQ('')}
+                      onClick={() => setQ("")}
                       aria-label="Clear search"
                       title="Clear"
                     >
@@ -231,10 +283,20 @@ export default function SearchPage() {
                     className="h-10 md:h-12 px-4"
                     disabled={!dq || filtered.length === 0 || isLoading}
                     aria-label="Open top hit"
-                    title={(!dq || filtered.length === 0) ? 'Type to search' : 'Open top hit'}
+                    title={
+                      !dq || filtered.length === 0
+                        ? "Type to search"
+                        : "Open top hit"
+                    }
                   >
-                    {isLoading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <SearchIcon className="mr-2 size-4" />}
-                    <span className="hidden sm:inline">{isLoading ? 'Searching…' : 'Open top hit'}</span>
+                    {isLoading ? (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    ) : (
+                      <SearchIcon className="mr-2 size-4" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {isLoading ? "Searching…" : "Open top hit"}
+                    </span>
                   </Button>
 
                   {/* subtle shimmer while loading */}
@@ -265,18 +327,18 @@ export default function SearchPage() {
                 {/* view group */}
                 <div className="inline-flex items-center gap-1 rounded-xl border p-1 bg-background/60">
                   <Button
-                    variant={view === 'grid' ? 'default' : 'ghost'}
+                    variant={view === "grid" ? "default" : "ghost"}
                     size="sm"
                     className="h-8"
-                    onClick={() => setView('grid')}
+                    onClick={() => setView("grid")}
                   >
                     <LayoutGrid className="mr-2 size-4" /> Grid
                   </Button>
                   <Button
-                    variant={view === 'list' ? 'default' : 'ghost'}
+                    variant={view === "list" ? "default" : "ghost"}
                     size="sm"
                     className="h-8"
-                    onClick={() => setView('list')}
+                    onClick={() => setView("list")}
                   >
                     <LayoutList className="mr-2 size-4" /> List
                   </Button>
@@ -288,34 +350,47 @@ export default function SearchPage() {
                     variant="outline"
                     size="sm"
                     className="h-8"
-                    onClick={() => setSort(sort === 'recent' ? 'title' : 'recent')}
+                    onClick={() =>
+                      setSort(sort === "recent" ? "title" : "recent")
+                    }
                     title="Toggle sort"
                   >
                     <ArrowUpDown className="mr-2 size-4" />
-                    {sort === 'recent' ? 'Recent' : 'Title'}
+                    {sort === "recent" ? "Recent" : "Title"}
                   </Button>
 
                   <div className="inline-flex items-center rounded-xl border bg-background/60 pl-1">
-                    {(['24h', '7d', '30d', 'all'] as Range[]).map((r) => (
+                    {(["24h", "7d", "30d", "all"] as Range[]).map((r) => (
                       <Button
                         key={r}
                         size="sm"
-                        variant={range === r ? 'default' : 'ghost'}
+                        variant={range === r ? "default" : "ghost"}
                         className="h-8 px-3"
                         onClick={() => setRange(r)}
                         aria-pressed={range === r}
-                        title={r === 'all' ? 'All time' : r}
+                        title={r === "all" ? "All time" : r}
                       >
-                        {r === 'all' ? <CalendarClock className="mr-2 size-3.5" /> : <Clock className="mr-2 size-3.5" />}
-                        {r === 'all' ? 'All' : r}
+                        {r === "all" ? (
+                          <CalendarClock className="mr-2 size-3.5" />
+                        ) : (
+                          <Clock className="mr-2 size-3.5" />
+                        )}
+                        {r === "all" ? "All" : r}
                       </Button>
                     ))}
                   </div>
                 </div>
               </div>
 
-              <div className="text-xs opacity-70 inline-flex items-center gap-2" aria-live="polite">
-                {isLoading ? <Loader2 className="size-3.5 animate-spin" /> : <History className="size-3.5" />}
+              <div
+                className="text-xs opacity-70 inline-flex items-center gap-2"
+                aria-live="polite"
+              >
+                {isLoading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <History className="size-3.5" />
+                )}
                 <span>{resultsLabel}</span>
               </div>
             </div>
@@ -343,13 +418,17 @@ export default function SearchPage() {
                       <div className="relative">
                         <div className="absolute -inset-4 rounded-2xl bg-gradient-to-tr from-indigo-500/20 to-fuchsia-500/20 blur-xl" />
                         <div className="relative grid place-items-center rounded-xl border bg-background/80 border-indigo-500/30 text-indigo-600 size-12 shadow-sm">
-                          <LumachorMark variant="white"/>
+                          <LumachorMark variant="white" />
                         </div>
                       </div>
                     </div>
-                    <h2 className="text-lg md:text-xl font-semibold">Start typing to search your chats</h2>
+                    <h2 className="text-lg md:text-xl font-semibold">
+                      Start typing to search your chats
+                    </h2>
                     <p className="mt-1 text-sm opacity-70">
-                      Search across titles and content. Try a keyword like <span className="font-medium">“summary”</span> or <span className="font-medium">“meeting”</span>.
+                      Search across titles and content. Try a keyword like{" "}
+                      <span className="font-medium">“summary”</span> or{" "}
+                      <span className="font-medium">“meeting”</span>.
                     </p>
 
                     {/* Helpful quick actions */}
@@ -359,14 +438,18 @@ export default function SearchPage() {
                           <MessageSquare className="size-3.5 opacity-70" />
                           Search titles & content
                         </div>
-                        <div className="text-[11px] opacity-70 mt-1">Results update live as you type.</div>
+                        <div className="text-[11px] opacity-70 mt-1">
+                          Results update live as you type.
+                        </div>
                       </div>
                       <div className="rounded-xl border p-3 bg-background/60">
                         <div className="flex items-center gap-2 text-xs font-medium">
                           <History className="size-3.5 opacity-70" />
                           Filter by recency
                         </div>
-                        <div className="text-[11px] opacity-70 mt-1">Use 24h / 7d / 30d / All.</div>
+                        <div className="text-[11px] opacity-70 mt-1">
+                          Use 24h / 7d / 30d / All.
+                        </div>
                       </div>
                       <div className="rounded-xl border p-3 bg-background/60">
                         <div className="flex items-center gap-2 text-xs font-medium">
@@ -374,7 +457,11 @@ export default function SearchPage() {
                           Open the top hit
                         </div>
                         <div className="text-[11px] opacity-70 mt-1">
-                          Press <kbd className="px-1 py-0.5 rounded border">Enter</kbd> to jump in.
+                          Press{" "}
+                          <kbd className="px-1 py-0.5 rounded border">
+                            Enter
+                          </kbd>{" "}
+                          to jump in.
                         </div>
                       </div>
                     </div>
@@ -387,7 +474,7 @@ export default function SearchPage() {
                           onClick={() => setQ(c)}
                           className="inline-flex items-center rounded-full border px-3 py-1 text-[11px] transition hover:bg-foreground/5"
                           title={`Search "${c}"`}
-                          style={{ background: 'hsl(262 85% 45% / 0.06)' }}
+                          style={{ background: "hsl(262 85% 45% / 0.06)" }}
                         >
                           #{c}
                         </button>
@@ -395,7 +482,6 @@ export default function SearchPage() {
                     </div>
                   </div>
                 </div>
-
               </motion.div>
             ) : isLoading ? (
               <motion.ul
@@ -403,11 +489,18 @@ export default function SearchPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className={cx(view === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' : 'space-y-2')}
+                className={cx(
+                  view === "grid"
+                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+                    : "space-y-2"
+                )}
                 aria-busy
               >
-                {Array.from({ length: view === 'grid' ? 9 : 6 }).map((_, i) => (
-                  <li key={i} className="relative rounded-2xl border p-4 bg-background/60 overflow-hidden">
+                {Array.from({ length: view === "grid" ? 9 : 6 }).map((_, i) => (
+                  <li
+                    key={i}
+                    className="relative rounded-2xl border p-4 bg-background/60 overflow-hidden"
+                  >
                     <ShimmerOverlay show />
                     <div className="flex items-start gap-3">
                       <Skeleton className="size-8 rounded-lg" />
@@ -438,7 +531,9 @@ export default function SearchPage() {
                   <Filter className="size-5 opacity-70" />
                 </div>
                 <div className="font-medium">No matches</div>
-                <div className="text-sm opacity-70 mt-1">Try different keywords or date range.</div>
+                <div className="text-sm opacity-70 mt-1">
+                  Try different keywords or date range.
+                </div>
                 <div className="mt-4 inline-flex flex-wrap justify-center gap-1.5">
                   {chips.slice(0, 5).map((c) => (
                     <button
@@ -451,7 +546,7 @@ export default function SearchPage() {
                   ))}
                 </div>
               </motion.div>
-            ) : view === 'grid' ? (
+            ) : view === "grid" ? (
               <motion.ul
                 key="grid"
                 initial={{ opacity: 0 }}
@@ -461,7 +556,7 @@ export default function SearchPage() {
               >
                 {filtered.map((r) => {
                   const when = new Date(r.lastMessageAt || r.createdAt);
-                  const title = r.title || 'Untitled chat';
+                  const title = r.title || "Untitled chat";
                   return (
                     <li key={r.id}>
                       <button
@@ -473,7 +568,9 @@ export default function SearchPage() {
                             <MessageSquare className="size-4 opacity-70" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate">{highlight(title, dq)}</div>
+                            <div className="font-medium truncate">
+                              {highlight(title, dq)}
+                            </div>
                             <div className="text-xs opacity-70 mt-0.5 inline-flex items-center gap-1">
                               <History className="size-3.5" />
                               Last activity {when.toLocaleString()}
@@ -498,7 +595,7 @@ export default function SearchPage() {
               >
                 {filtered.map((r) => {
                   const when = new Date(r.lastMessageAt || r.createdAt);
-                  const title = r.title || 'Untitled chat';
+                  const title = r.title || "Untitled chat";
                   return (
                     <li key={r.id}>
                       <button
@@ -510,7 +607,9 @@ export default function SearchPage() {
                             <MessageSquare className="size-4 opacity-70" />
                           </div>
                           <div className="min-w-0">
-                            <div className="font-medium truncate">{highlight(title, dq)}</div>
+                            <div className="font-medium truncate">
+                              {highlight(title, dq)}
+                            </div>
                             <div className="text-xs opacity-70 inline-flex items-center gap-1">
                               <History className="size-3.5" />
                               Last activity {when.toLocaleString()}

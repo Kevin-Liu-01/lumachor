@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { RefreshCcw, Home, Search } from 'lucide-react';
+import { useEffect } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { RefreshCcw, Home, Search } from "lucide-react";
 
 export default function Error({
   error,
@@ -25,14 +25,21 @@ export default function Error({
 
       <main className="mx-auto max-w-4xl px-4 py-10 md:py-16">
         <div className="rounded-2xl border bg-background/70 backdrop-blur p-6 md:p-8 relative overflow-hidden">
-          <div className="absolute -right-10 -top-10 size-44 rounded-full bg-indigo-500/10 blur-2xl" aria-hidden />
-          <div className="absolute -left-12 -bottom-12 size-48 rounded-full bg-sky-500/10 blur-2xl" aria-hidden />
+          <div
+            className="absolute -right-10 -top-10 size-44 rounded-full bg-indigo-500/10 blur-2xl"
+            aria-hidden
+          />
+          <div
+            className="absolute -left-12 -bottom-12 size-48 rounded-full bg-sky-500/10 blur-2xl"
+            aria-hidden
+          />
 
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
             Something went wrong
           </h1>
           <p className="mt-2 text-sm md:text-base opacity-70">
-            An unexpected error occurred. You can retry the last action, or hop to a safe page.
+            An unexpected error occurred. You can retry the last action, or hop
+            to a safe page.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-2">

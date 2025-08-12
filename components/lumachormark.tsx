@@ -1,6 +1,6 @@
 type LumachorMarkProps = {
   /** default = colored mark; "black" = black bg + white icon; "white" = white bg + black icon */
-  variant?: 'default' | 'black' | 'white';
+  variant?: "default" | "black" | "white";
   /** Tailwind classes for sizing, etc. */
   className?: string;
   /** Accessible label (omit for decorative use) */
@@ -8,41 +8,50 @@ type LumachorMarkProps = {
 };
 
 export default function LumachorMark({
-  variant = 'default',
-  className = 'size-7',
+  variant = "default",
+  className = "size-7",
   label,
 }: LumachorMarkProps) {
   // Colors per variant
   const cfg =
-    variant === 'black'
+    variant === "black"
       ? {
-          tile: { fill: '#000000', opacity: 1 },
-          swirl: { fill: '#FFFFFF', opacity: 1 },
-          dot: { fill: '#FFFFFF', opacity: 1 },
+          tile: { fill: "#000000", opacity: 1 },
+          swirl: { fill: "#FFFFFF", opacity: 1 },
+          dot: { fill: "#FFFFFF", opacity: 1 },
         }
-      : variant === 'white'
-        ? {
-            tile: { fill: '#FFFFFF', opacity: 1 },
-            swirl: { fill: '#000000', opacity: 1 },
-            dot: { fill: '#000000', opacity: 1 },
-          }
-        : {
-            // original colorful look
-            tile: { fill: '#6366F1', opacity: 0.10 },  // indigo-500 @ 10%
-            swirl: { fill: '#4F46E5', opacity: 0.84 }, // indigo-600 @ 84%
-            dot: { fill: '#E0E7FF', opacity: 0.65 },   // indigo-100 @ 65%
-          };
+      : variant === "white"
+      ? {
+          tile: { fill: "#FFFFFF", opacity: 1 },
+          swirl: { fill: "#000000", opacity: 1 },
+          dot: { fill: "#000000", opacity: 1 },
+        }
+      : {
+          // original colorful look
+          tile: { fill: "#6366F1", opacity: 0.1 }, // indigo-500 @ 10%
+          swirl: { fill: "#4F46E5", opacity: 0.84 }, // indigo-600 @ 84%
+          dot: { fill: "#E0E7FF", opacity: 0.65 }, // indigo-100 @ 65%
+        };
 
   return (
     <svg
       viewBox="0 0 32 32"
       className={className}
-      role={label ? 'img' : undefined}
+      role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
     >
       {/* rounded tile background */}
-      <rect rx="8" ry="8" x="2" y="2" width="28" height="28" fill={cfg.tile.fill} opacity={cfg.tile.opacity} />
+      <rect
+        rx="8"
+        ry="8"
+        x="2"
+        y="2"
+        width="28"
+        height="28"
+        fill={cfg.tile.fill}
+        opacity={cfg.tile.opacity}
+      />
 
       {/* shell / swirl */}
       <path
@@ -52,7 +61,13 @@ export default function LumachorMark({
       />
 
       {/* accent dot */}
-      <circle cx="22.5" cy="21" r="2.5" fill={cfg.dot.fill} opacity={cfg.dot.opacity} />
+      <circle
+        cx="22.5"
+        cy="21"
+        r="2.5"
+        fill={cfg.dot.fill}
+        opacity={cfg.dot.opacity}
+      />
     </svg>
   );
 }

@@ -1,28 +1,38 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useWindowSize } from 'usehooks-ts';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useWindowSize } from "usehooks-ts";
 
-import { memo } from 'react';
-import { LibraryBig, Plus, Sparkles } from 'lucide-react';
+import { memo } from "react";
+import { LibraryBig, Plus, Sparkles } from "lucide-react";
 
-import { ModelSelector } from '@/components/model-selector';
-import { SidebarToggle } from '@/components/sidebar-toggle';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useSidebar } from '@/components/ui/sidebar';
-import { type VisibilityType, VisibilitySelector } from '@/components/visibility-selector';
-import type { Session } from 'next-auth';
-import LumachorMark from './lumachormark';
-
+import { ModelSelector } from "@/components/model-selector";
+import { SidebarToggle } from "@/components/sidebar-toggle";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useSidebar } from "@/components/ui/sidebar";
+import {
+  type VisibilityType,
+  VisibilitySelector,
+} from "@/components/visibility-selector";
+import type { Session } from "next-auth";
+import LumachorMark from "./lumachormark";
 
 function LumachorLogo() {
   return (
     <div className="sm:hidden flex items-center gap-2 mr-4">
       <div className="text-indigo-600">
-         <div className="dark:hidden"><LumachorMark variant="white" /></div>
-         <div className="hidden dark:flex"><LumachorMark /></div>
+        <div className="dark:hidden">
+          <LumachorMark variant="white" />
+        </div>
+        <div className="hidden dark:flex">
+          <LumachorMark />
+        </div>
       </div>
       <span className="text-sm font-extrabold tracking-wide">LUMACHOR</span>
     </div>
@@ -56,12 +66,12 @@ function PureChatHeader({
     <header
       className={[
         // layout
-        'sticky top-0 z-40',
-        'border-b',
+        "sticky top-0 z-40",
+        "border-b",
         // glass + gradient
-        'bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/55',
-        'relative',
-      ].join(' ')}
+        "bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/55",
+        "relative",
+      ].join(" ")}
     >
       {/* glow accents */}
       <div className="pointer-events-none absolute -top-12 -left-10 size-36 rounded-full bg-indigo-500/10 blur-3xl" />
@@ -72,20 +82,25 @@ function PureChatHeader({
           {/* <SidebarToggle /> */}
           <LumachorLogo />
 
-          
           {/* Middle rail: model + visibility (hidden when readonly) */}
           {!isReadonly && (
             <div
               className={[
-                'ml-2 hidden md:flex items-center gap-2',
-                'rounded-xl border px-2 py-1.5',
-                'bg-gradient-to-r from-indigo-500/[0.06] to-fuchsia-500/[0.06]',
-                'border-indigo-500/20',
-              ].join(' ')}
+                "ml-2 hidden md:flex items-center gap-2",
+                "rounded-xl border px-2 py-1.5",
+                "bg-gradient-to-r from-indigo-500/[0.06] to-fuchsia-500/[0.06]",
+                "border-indigo-500/20",
+              ].join(" ")}
             >
-              <ModelSelector session={session} selectedModelId={selectedModelId} />
+              <ModelSelector
+                session={session}
+                selectedModelId={selectedModelId}
+              />
               <div className="mx-1 h-5 w-px bg-foreground/10" />
-              <VisibilitySelector chatId={chatId} selectedVisibilityType={selectedVisibilityType} />
+              <VisibilitySelector
+                chatId={chatId}
+                selectedVisibilityType={selectedVisibilityType}
+              />
             </div>
           )}
 
@@ -93,36 +108,36 @@ function PureChatHeader({
           {!isReadonly && (
             <div className="ml-auto flex items-center gap-3 sm:gap-4">
               {/* Collapse/Expand toggle */}
-          <SidebarToggle />
-        
+              <SidebarToggle />
+
               {/* New Chat (compact on mobile) */}
-          {(!open || windowWidth < 768) && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="sm:ml-1 p-2 h-8"
-                  onClick={() => {
-                    router.push('/');
-                    router.refresh();
-                  }}
-                >
-                  <Plus className="sm:mr-1 size-4" />
-                  <span className="hidden md:inline">New Chat</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>New Chat</TooltipContent>
-            </Tooltip>
-          )}
+              {(!open || windowWidth < 768) && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="sm:ml-1 p-2 h-8"
+                      onClick={() => {
+                        router.push("/");
+                        router.refresh();
+                      }}
+                    >
+                      <Plus className="sm:mr-1 size-4" />
+                      <span className="hidden md:inline">New Chat</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>New Chat</TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="secondary"
                     className={[
-                      'px-3 mr-2 py-2 h-8',
-                      'bg-gradient-to-r from-indigo-600/10 to-fuchsia-600/10',
-                      'border border-indigo-500/20',
-                    ].join(' ')}
+                      "px-3 mr-2 py-2 h-8",
+                      "bg-gradient-to-r from-indigo-600/10 to-fuchsia-600/10",
+                      "border border-indigo-500/20",
+                    ].join(" ")}
                     onClick={onOpenContexts}
                   >
                     <LibraryBig className="mr-2 size-4 " />

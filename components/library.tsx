@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import useSWR from 'swr';
-import cx from 'classnames';
-import { AnimatePresence, motion } from 'framer-motion';
+import * as React from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import useSWR from "swr";
+import cx from "classnames";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowUpDown,
   ChevronDown,
@@ -23,20 +23,25 @@ import {
   Trash2,
   UploadCloud,
   X,
-} from 'lucide-react';
+} from "lucide-react";
 
-import { fetcher } from '@/lib/utils';
-import { toast } from '@/components/toast';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ShimmerOverlay, TopStripeLoader } from '@/components/ui/shimmer';
+import { fetcher } from "@/lib/utils";
+import { toast } from "@/components/toast";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ShimmerOverlay, TopStripeLoader } from "@/components/ui/shimmer";
 
-import type { ContextRow } from '@/components/context-selected-bar';
-import LumachorMark from './lumachormark';
+import type { ContextRow } from "@/components/context-selected-bar";
+import LumachorMark from "./lumachormark";
 
 /* --------------------- types / helpers --------------------- */
 
@@ -56,26 +61,33 @@ type ContextRowWithMeta = ContextRow & {
   publishedAt?: string | null;
 };
 
-type Scope = 'all' | 'mine' | 'starred' | 'public';
-type ViewMode = 'grid' | 'list';
-type SortKey = 'createdAt' | 'name' | 'stars';
+type Scope = "all" | "mine" | "starred" | "public";
+type ViewMode = "grid" | "list";
+type SortKey = "createdAt" | "name" | "stars";
 
-const CHAT_PATH = '/'; // change to '/chat' if your chat lives there
+const CHAT_PATH = "/"; // change to '/chat' if your chat lives there
 
 const unique = <T,>(arr: T[]) => Array.from(new Set(arr));
-const cleanTitle = (s: string) => s.replace(/^\s*(?:\*\*Title\*\*|#+)\s*/i, '').trim();
+const cleanTitle = (s: string) =>
+  s.replace(/^\s*(?:\*\*Title\*\*|#+)\s*/i, "").trim();
 
 function parseStructured(content: string): StructuredContext | null {
   try {
     const obj = JSON.parse(content);
-    if (obj && typeof obj === 'object' && typeof (obj as any).title === 'string') return obj as StructuredContext;
+    if (
+      obj &&
+      typeof obj === "object" &&
+      typeof (obj as any).title === "string"
+    )
+      return obj as StructuredContext;
   } catch {}
   return null;
 }
 
 function colorFromTag(tag: string) {
   const hues = [262, 280, 200, 150, 20, 330, 210, 100, 40, 0];
-  const i = [...tag].reduce((acc, ch) => (acc + ch.charCodeAt(0)) | 0, 0) % hues.length;
+  const i =
+    [...tag].reduce((acc, ch) => (acc + ch.charCodeAt(0)) | 0, 0) % hues.length;
   const h = hues[i];
   return `hsl(${h} 85% 45% / 0.25)`;
 }
@@ -98,11 +110,19 @@ function SoftTag({
       type="button"
       onClick={onClick}
       className={cx(
-        'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] transition',
-        active ? 'border-transparent bg-[--tag-bg] text-foreground' : 'border-foreground/15 hover:bg-foreground/5',
-        className,
+        "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] transition",
+        active
+          ? "border-transparent bg-[--tag-bg] text-foreground"
+          : "border-foreground/15 hover:bg-foreground/5",
+        className
       )}
-      style={active ? ({ ['--tag-bg' as any]: colorFromTag(label) } as React.CSSProperties) : undefined}
+      style={
+        active
+          ? ({
+              ["--tag-bg" as any]: colorFromTag(label),
+            } as React.CSSProperties)
+          : undefined
+      }
     >
       <span className="opacity-80">#</span>
       <span className="font-medium">{label}</span>
@@ -113,7 +133,7 @@ function SoftTag({
 function TagInput({
   value,
   onChange,
-  placeholder = 'Add a tag and press Enter',
+  placeholder = "Add a tag and press Enter",
   disabled = false,
   suggestions = [],
   loading = false,
@@ -125,17 +145,18 @@ function TagInput({
   suggestions?: string[];
   loading?: boolean;
 }) {
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState("");
   const [openSugs, setOpenSugs] = useState(false);
   const lower = value.map((v) => v.toLowerCase());
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpenSugs(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpenSugs(false);
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   function commit(token: string) {
@@ -147,7 +168,11 @@ function TagInput({
   const filteredSugs = useMemo(() => {
     if (!draft.trim()) return suggestions.slice(0, 16);
     const d = draft.toLowerCase();
-    return suggestions.filter((s) => s.toLowerCase().includes(d) && !lower.includes(s.toLowerCase())).slice(0, 16);
+    return suggestions
+      .filter(
+        (s) => s.toLowerCase().includes(d) && !lower.includes(s.toLowerCase())
+      )
+      .slice(0, 16);
   }, [draft, suggestions, lower]);
 
   if (loading) {
@@ -170,7 +195,10 @@ function TagInput({
             <span
               key={t}
               className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px]"
-              style={{ background: colorFromTag(t), borderColor: 'transparent' }}
+              style={{
+                background: colorFromTag(t),
+                borderColor: "transparent",
+              }}
             >
               <TagIcon className="size-3 opacity-70" />
               {t}
@@ -195,14 +223,14 @@ function TagInput({
               setOpenSugs(true);
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ',') {
+              if (e.key === "Enter" || e.key === ",") {
                 e.preventDefault();
                 commit(draft);
-                setDraft('');
+                setDraft("");
                 setOpenSugs(false);
-              } else if (e.key === 'Backspace' && !draft && value.length) {
+              } else if (e.key === "Backspace" && !draft && value.length) {
                 onChange(value.slice(0, -1));
-              } else if (e.key === 'Escape') {
+              } else if (e.key === "Escape") {
                 setOpenSugs(false);
               }
             }}
@@ -219,10 +247,19 @@ function TagInput({
               exit={{ opacity: 0, y: -2 }}
               className="rounded-xl border bg-background/90 backdrop-blur p-2 shadow-sm"
             >
-              <div className="text-[11px] mb-1 opacity-70 px-1">Suggestions</div>
+              <div className="text-[11px] mb-1 opacity-70 px-1">
+                Suggestions
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5">
                 {filteredSugs.map((s) => (
-                  <SoftTag key={s} label={s} onClick={() => { commit(s); setDraft(''); }} />
+                  <SoftTag
+                    key={s}
+                    label={s}
+                    onClick={() => {
+                      commit(s);
+                      setDraft("");
+                    }}
+                  />
                 ))}
               </div>
             </motion.div>
@@ -249,7 +286,7 @@ function TagFilterBox({
   loading?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
-  const [q, setQ] = React.useState('');
+  const [q, setQ] = React.useState("");
 
   const filtered = React.useMemo(() => {
     if (!q.trim()) return allTags;
@@ -259,7 +296,7 @@ function TagFilterBox({
 
   const visible = React.useMemo(
     () => (open ? filtered : filtered.slice(0, collapsedCount)),
-    [filtered, open, collapsedCount],
+    [filtered, open, collapsedCount]
   );
   const remaining = Math.max(0, filtered.length - visible.length);
 
@@ -272,8 +309,12 @@ function TagFilterBox({
             <TagIcon className="size-3.5" />
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-semibold leading-tight">Filter by tags</div>
-            <div className="text-[11px] opacity-70">{selected.length}/{allTags.length} selected</div>
+            <div className="text-sm font-semibold leading-tight">
+              Filter by tags
+            </div>
+            <div className="text-[11px] opacity-70">
+              {selected.length}/{allTags.length} selected
+            </div>
           </div>
         </div>
 
@@ -293,10 +334,15 @@ function TagFilterBox({
             className="size-7"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            title={open ? 'Show fewer tags' : 'Show more tags'}
+            title={open ? "Show fewer tags" : "Show more tags"}
             disabled={loading}
           >
-            <ChevronDown className={cx('size-4 transition-transform', open && 'rotate-180')} />
+            <ChevronDown
+              className={cx(
+                "size-4 transition-transform",
+                open && "rotate-180"
+              )}
+            />
           </Button>
         </div>
       </div>
@@ -328,9 +374,18 @@ function TagFilterBox({
           </>
         ) : (
           <>
-            <SoftTag label="all" active={selected.length === 0} onClick={onClear} />
+            <SoftTag
+              label="all"
+              active={selected.length === 0}
+              onClick={onClear}
+            />
             {visible.map((t) => (
-              <SoftTag key={t} label={t} active={selected.includes(t)} onClick={() => onToggle(t)} />
+              <SoftTag
+                key={t}
+                label={t}
+                active={selected.includes(t)}
+                onClick={() => onToggle(t)}
+              />
             ))}
             {!open && remaining > 0 && (
               <button
@@ -357,28 +412,38 @@ export default function Library() {
   const router = useRouter();
 
   // default scope
-  const [scope, setScope] = useState<Scope>((searchParams.get('scope') as Scope) || 'all');
-  const [query, setQuery] = useState(searchParams.get('q') || '');
+  const [scope, setScope] = useState<Scope>(
+    (searchParams.get("scope") as Scope) || "all"
+  );
+  const [query, setQuery] = useState(searchParams.get("q") || "");
   const [selectedTags, setSelectedTags] = useState<string[]>(
-    searchParams.get('tags') ? searchParams.get('tags')!.split(',').filter(Boolean) : [],
+    searchParams.get("tags")
+      ? searchParams.get("tags")!.split(",").filter(Boolean)
+      : []
   );
 
-  const [view, setView] = useState<ViewMode>((searchParams.get('view') as ViewMode) || 'grid');
-  const [sortKey, setSortKey] = useState<SortKey>((searchParams.get('sort') as SortKey) || 'createdAt');
+  const [view, setView] = useState<ViewMode>(
+    (searchParams.get("view") as ViewMode) || "grid"
+  );
+  const [sortKey, setSortKey] = useState<SortKey>(
+    (searchParams.get("sort") as SortKey) || "createdAt"
+  );
   const [createOpen, setCreateOpen] = useState(false);
-  const [createMode, setCreateMode] = useState<'generate' | 'manual'>('generate');
+  const [createMode, setCreateMode] = useState<"generate" | "manual">(
+    "generate"
+  );
 
   // generate
-  const [genPrompt, setGenPrompt] = useState('');
+  const [genPrompt, setGenPrompt] = useState("");
   const [genTags, setGenTags] = useState<string[]>([]);
   const [genBusy, setGenBusy] = useState(false);
   const genAbortRef = useRef<AbortController | null>(null);
 
   // manual
-  const [newTitle, setNewTitle] = useState('');
-  const [newDesc, setNewDesc] = useState('');
+  const [newTitle, setNewTitle] = useState("");
+  const [newDesc, setNewDesc] = useState("");
   const [newTags, setNewTags] = useState<string[]>([]);
-  const [newContent, setNewContent] = useState('');
+  const [newContent, setNewContent] = useState("");
   const [creating, setCreating] = useState(false);
 
   // selection / inspector
@@ -401,21 +466,36 @@ export default function Library() {
 
   /* ---------------- data ---------------- */
 
-  const { data: mineData, isLoading: loadingMine, mutate: mutateMine } = useSWR<{ contexts: ContextRowWithMeta[] }>(
-    '/api/contexts?withMeta=1&mine=1',
+  const {
+    data: mineData,
+    isLoading: loadingMine,
+    mutate: mutateMine,
+  } = useSWR<{ contexts: ContextRowWithMeta[] }>(
+    "/api/contexts?withMeta=1&mine=1",
     fetcher
   );
-  const { data: starredData, isLoading: loadingStarred, mutate: mutateStarred } = useSWR<{ contexts: ContextRowWithMeta[] }>(
-    '/api/contexts?withMeta=1&starred=1',
+  const {
+    data: starredData,
+    isLoading: loadingStarred,
+    mutate: mutateStarred,
+  } = useSWR<{ contexts: ContextRowWithMeta[] }>(
+    "/api/contexts?withMeta=1&starred=1",
     fetcher
   );
-  const { data: publicData, isLoading: loadingPublic, mutate: mutatePublic } = useSWR<{ contexts: ContextRowWithMeta[] }>(
-    '/api/public-contexts',
+  const {
+    data: publicData,
+    isLoading: loadingPublic,
+    mutate: mutatePublic,
+  } = useSWR<{ contexts: ContextRowWithMeta[] }>(
+    "/api/public-contexts",
     fetcher
   );
 
   const mine = useMemo(() => mineData?.contexts ?? [], [mineData?.contexts]);
-  const starred = useMemo(() => starredData?.contexts ?? [], [starredData?.contexts]);
+  const starred = useMemo(
+    () => starredData?.contexts ?? [],
+    [starredData?.contexts]
+  );
   const pub = useMemo(() => publicData?.contexts ?? [], [publicData?.contexts]);
 
   /* ------------ NORMALIZE SOURCES INTO ONE CANONICAL INDEX ------------ */
@@ -438,11 +518,19 @@ export default function Library() {
     return m;
   }, [starred]);
 
-  const starredSet = useMemo(() => new Set(starred.map((s) => s.id)), [starred]);
+  const starredSet = useMemo(
+    () => new Set(starred.map((s) => s.id)),
+    [starred]
+  );
 
   const allIds = useMemo(
-    () => unique([...Array.from(mineMap.keys()), ...Array.from(pubMap.keys()), ...Array.from(starredMap.keys())]),
-    [mineMap, pubMap, starredMap],
+    () =>
+      unique([
+        ...Array.from(mineMap.keys()),
+        ...Array.from(pubMap.keys()),
+        ...Array.from(starredMap.keys()),
+      ]),
+    [mineMap, pubMap, starredMap]
   );
 
   const universe: ContextRowWithMeta[] = useMemo(() => {
@@ -476,21 +564,24 @@ export default function Library() {
       public: universe.filter((c) => !!c.publicId),
       starred: universe.filter((c) => !!c.liked),
     }),
-    [universe],
+    [universe]
   );
 
   const scopeItems = itemsByScope[scope];
 
   // Tags from current scope
-  const allTagsRaw = useMemo(() => unique(scopeItems.flatMap((c) => c.tags || [])).sort(), [scopeItems]);
+  const allTagsRaw = useMemo(
+    () => unique(scopeItems.flatMap((c) => c.tags || [])).sort(),
+    [scopeItems]
+  );
 
   // Loading: ensure public meta is present where needed for "Public" pill consistency
   const isLoading =
-    scope === 'public'
+    scope === "public"
       ? loadingPublic
-      : scope === 'mine'
+      : scope === "mine"
       ? loadingMine || loadingPublic
-      : scope === 'starred'
+      : scope === "starred"
       ? loadingStarred || loadingPublic
       : loadingMine || loadingStarred || loadingPublic;
 
@@ -505,12 +596,12 @@ export default function Library() {
         const sc = parseStructured(c.content);
         const hay =
           c.name.toLowerCase() +
-          ' ' +
-          (c.description || '').toLowerCase() +
-          ' ' +
-          (sc?.description || '').toLowerCase() +
-          ' ' +
-          (sc?.background_goals || []).join(' ').toLowerCase();
+          " " +
+          (c.description || "").toLowerCase() +
+          " " +
+          (sc?.description || "").toLowerCase() +
+          " " +
+          (sc?.background_goals || []).join(" ").toLowerCase();
         return hay.includes(q);
       });
     }
@@ -526,11 +617,11 @@ export default function Library() {
 
     items = [...items].sort((a, b) => {
       switch (sortKey) {
-        case 'name':
+        case "name":
           return a.name.localeCompare(b.name);
-        case 'createdAt':
+        case "createdAt":
           return time(b.createdAt) - time(a.createdAt);
-        case 'stars':
+        case "stars":
           return Number(b.liked) - Number(a.liked);
         default:
           return 0;
@@ -540,17 +631,20 @@ export default function Library() {
     return items;
   }, [scopeItems, query, selectedTags, sortKey]);
 
-  const active = useMemo(() => (activeId ? filtered.find((c) => c.id === activeId) ?? null : null), [activeId, filtered]);
+  const active = useMemo(
+    () => (activeId ? filtered.find((c) => c.id === activeId) ?? null : null),
+    [activeId, filtered]
+  );
 
   // sync url (omit default pieces)
   useEffect(() => {
     const sp = new URLSearchParams();
-    if (scope !== 'all') sp.set('scope', scope);
-    if (query.trim()) sp.set('q', query.trim());
-    if (selectedTags.length) sp.set('tags', selectedTags.join(','));
-    if (view !== 'grid') sp.set('view', view);
-    if (sortKey !== 'createdAt') sp.set('sort', sortKey);
-    router.replace(sp.toString() ? `/library?${sp.toString()}` : '/library');
+    if (scope !== "all") sp.set("scope", scope);
+    if (query.trim()) sp.set("q", query.trim());
+    if (selectedTags.length) sp.set("tags", selectedTags.join(","));
+    if (view !== "grid") sp.set("view", view);
+    if (sortKey !== "createdAt") sp.set("sort", sortKey);
+    router.replace(sp.toString() ? `/library?${sp.toString()}` : "/library");
   }, [router, scope, query, selectedTags, view, sortKey]);
 
   /* ---------------- actions ---------------- */
@@ -561,22 +655,30 @@ export default function Library() {
     try {
       const ac = new AbortController();
       genAbortRef.current = ac;
-      const res = await fetch('/api/contexts/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userPrompt: genPrompt, tags: genTags, model: 'chat-model' }),
+      const res = await fetch("/api/contexts/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userPrompt: genPrompt,
+          tags: genTags,
+          model: "chat-model",
+        }),
         signal: ac.signal,
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err?.message || 'Failed to generate');
+        throw new Error(err?.message || "Failed to generate");
       }
-      setGenPrompt('');
+      setGenPrompt("");
       setGenTags([]);
       await Promise.all([mutateMine(), mutateStarred(), mutatePublic()]);
-      toast({ type: 'success', description: 'Context generated!' });
+      toast({ type: "success", description: "Context generated!" });
     } catch (e: any) {
-      if (e?.name !== 'AbortError') toast({ type: 'error', description: e?.message || 'Failed to generate context' });
+      if (e?.name !== "AbortError")
+        toast({
+          type: "error",
+          description: e?.message || "Failed to generate context",
+        });
     } finally {
       genAbortRef.current = null;
       setGenBusy(false);
@@ -586,33 +688,41 @@ export default function Library() {
     genAbortRef.current?.abort();
     genAbortRef.current = null;
     setGenBusy(false);
-    toast({ type: 'success', description: 'Generation canceled.' });
+    toast({ type: "success", description: "Generation canceled." });
   }
 
   async function createManualContext() {
     if (!newTitle.trim() || !newContent.trim()) {
-      toast({ type: 'error', description: 'Please add a title and content.' });
+      toast({ type: "error", description: "Please add a title and content." });
       return;
     }
     setCreating(true);
     try {
-      const res = await fetch('/api/contexts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newTitle, description: newDesc, tags: newTags, content: newContent }),
+      const res = await fetch("/api/contexts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newTitle,
+          description: newDesc,
+          tags: newTags,
+          content: newContent,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err?.message || 'Failed to create context');
+        throw new Error(err?.message || "Failed to create context");
       }
-      setNewTitle('');
-      setNewDesc('');
+      setNewTitle("");
+      setNewDesc("");
       setNewTags([]);
-      setNewContent('');
+      setNewContent("");
       await Promise.all([mutateMine(), mutateStarred(), mutatePublic()]);
-      toast({ type: 'success', description: 'Context created.' });
+      toast({ type: "success", description: "Context created." });
     } catch (e: any) {
-      toast({ type: 'error', description: e?.message || 'Failed to create context' });
+      toast({
+        type: "error",
+        description: e?.message || "Failed to create context",
+      });
     } finally {
       setCreating(false);
     }
@@ -621,11 +731,11 @@ export default function Library() {
   async function toggleLike(id: string, isLiked: boolean) {
     setPending((p) => ({ ...p, like: new Set(p.like).add(id) }));
     try {
-      const res = await fetch(`/api/contexts/${id}`, { method: 'PATCH' });
-      if (!res.ok) throw new Error('Failed to toggle star');
+      const res = await fetch(`/api/contexts/${id}`, { method: "PATCH" });
+      if (!res.ok) throw new Error("Failed to toggle star");
       await Promise.all([mutateMine(), mutateStarred(), mutatePublic()]);
     } catch {
-      toast({ type: 'error', description: 'Could not update star.' });
+      toast({ type: "error", description: "Could not update star." });
     } finally {
       setPending((p) => {
         const n = new Set(p.like);
@@ -638,13 +748,13 @@ export default function Library() {
   async function deleteContext(id: string) {
     setPending((p) => ({ ...p, del: new Set(p.del).add(id) }));
     try {
-      const res = await fetch(`/api/contexts/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      const res = await fetch(`/api/contexts/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
       await Promise.all([mutateMine(), mutateStarred(), mutatePublic()]);
-      toast({ type: 'success', description: 'Context deleted.' });
+      toast({ type: "success", description: "Context deleted." });
       if (activeId === id) setActiveId(null);
     } catch {
-      toast({ type: 'error', description: 'Delete failed.' });
+      toast({ type: "error", description: "Delete failed." });
     } finally {
       setPending((p) => {
         const n = new Set(p.del);
@@ -657,19 +767,19 @@ export default function Library() {
   async function publishContext(id: string) {
     setPending((p) => ({ ...p, pub: new Set(p.pub).add(id) }));
     try {
-      const res = await fetch('/api/public-contexts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/public-contexts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contextId: id }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error(j?.message || 'Failed to publish');
+        throw new Error(j?.message || "Failed to publish");
       }
       await Promise.all([mutateMine(), mutateStarred(), mutatePublic()]);
-      toast({ type: 'success', description: 'Published to Public Library.' });
+      toast({ type: "success", description: "Published to Public Library." });
     } catch (e: any) {
-      toast({ type: 'error', description: e?.message || 'Failed to publish' });
+      toast({ type: "error", description: e?.message || "Failed to publish" });
     } finally {
       setPending((p) => {
         const n = new Set(p.pub);
@@ -682,12 +792,17 @@ export default function Library() {
   async function unpublishContext(publicId: string) {
     setPending((p) => ({ ...p, unpub: new Set(p.unpub).add(publicId) }));
     try {
-      const res = await fetch(`/api/public-contexts/${publicId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to unpublish');
+      const res = await fetch(`/api/public-contexts/${publicId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to unpublish");
       await Promise.all([mutateMine(), mutateStarred(), mutatePublic()]);
-      toast({ type: 'success', description: 'Removed from Public Library.' });
+      toast({ type: "success", description: "Removed from Public Library." });
     } catch (e: any) {
-      toast({ type: 'error', description: e?.message || 'Failed to unpublish' });
+      toast({
+        type: "error",
+        description: e?.message || "Failed to unpublish",
+      });
     } finally {
       setPending((p) => {
         const n = new Set(p.unpub);
@@ -701,14 +816,14 @@ export default function Library() {
     async (publicId: string) => {
       setPending((p) => ({ ...p, imp: new Set(p.imp).add(publicId) }));
       try {
-        const res = await fetch('/api/contexts/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const res = await fetch("/api/contexts/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ publicId }),
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
-          throw new Error(j?.message || 'Failed to import');
+          throw new Error(j?.message || "Failed to import");
         }
         const { context } = await res.json();
         await Promise.all([mutateMine(), mutateStarred(), mutatePublic()]);
@@ -721,7 +836,7 @@ export default function Library() {
         });
       }
     },
-    [mutateMine, mutateStarred, mutatePublic],
+    [mutateMine, mutateStarred, mutatePublic]
   );
 
   const openInChat = React.useCallback(
@@ -730,18 +845,24 @@ export default function Library() {
         let ctx = context;
         if (!ctx.owner) {
           if (!ctx.publicId) {
-            toast({ type: 'error', description: 'Cannot use: missing public id.' });
+            toast({
+              type: "error",
+              description: "Cannot use: missing public id.",
+            });
             return;
           }
           ctx = await importPublicContext(ctx.publicId);
-          toast({ type: 'success', description: 'Added to your library.' });
+          toast({ type: "success", description: "Added to your library." });
         }
         router.push(`${CHAT_PATH}?context=${encodeURIComponent(ctx.id)}`);
       } catch (e: any) {
-        toast({ type: 'error', description: e?.message || 'Could not use this context.' });
+        toast({
+          type: "error",
+          description: e?.message || "Could not use this context.",
+        });
       }
     },
-    [importPublicContext, router],
+    [importPublicContext, router]
   );
 
   /* ---------------- layout (100vh with internal scroll) ---------------- */
@@ -761,20 +882,26 @@ export default function Library() {
                 <LibraryBig className="size-5" />
               </div>
               <div className="min-w-0">
-                <div className="font-semibold leading-tight">Context Library</div>
+                <div className="font-semibold leading-tight">
+                  Context Library
+                </div>
                 <div className="text-xs opacity-70 h-4">
-                  {isLoading ? <Skeleton className="h-4 w-40" /> : `${filtered.length} of ${scopeItems.length} contexts`}
+                  {isLoading ? (
+                    <Skeleton className="h-4 w-40" />
+                  ) : (
+                    `${filtered.length} of ${scopeItems.length} contexts`
+                  )}
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center gap-1 rounded-xl border p-1 bg-background/60">
-                {(['all', 'mine', 'public', 'starred'] as Scope[]).map((s) => (
+                {(["all", "mine", "public", "starred"] as Scope[]).map((s) => (
                   <Button
                     key={s}
                     size="sm"
-                    variant={scope === s ? 'default' : 'ghost'}
+                    variant={scope === s ? "default" : "ghost"}
                     className="h-8 px-3"
                     onClick={() => setScope(s)}
                     shimmer={isLoading && scope === s}
@@ -786,7 +913,12 @@ export default function Library() {
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant={view === 'grid' ? 'default' : 'outline'} size="icon" className="size-8" onClick={() => setView('grid')}>
+                  <Button
+                    variant={view === "grid" ? "default" : "outline"}
+                    size="icon"
+                    className="size-8"
+                    onClick={() => setView("grid")}
+                  >
                     <LayoutGrid className="size-4" />
                   </Button>
                 </TooltipTrigger>
@@ -794,7 +926,12 @@ export default function Library() {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant={view === 'list' ? 'default' : 'outline'} size="icon" className="size-8" onClick={() => setView('list')}>
+                  <Button
+                    variant={view === "list" ? "default" : "outline"}
+                    size="icon"
+                    className="size-8"
+                    onClick={() => setView("list")}
+                  >
                     <LayoutList className="size-4" />
                   </Button>
                 </TooltipTrigger>
@@ -804,20 +941,29 @@ export default function Library() {
               <div className="relative">
                 <Button variant="outline" size="sm" className="h-8">
                   <ArrowUpDown className="mr-2 size-4" />
-                  {sortKey === 'createdAt' ? 'Created' : sortKey === 'name' ? 'Name' : 'Stars'}
+                  {sortKey === "createdAt"
+                    ? "Created"
+                    : sortKey === "name"
+                    ? "Name"
+                    : "Stars"}
                 </Button>
                 <button
                   className="absolute inset-0"
                   aria-label="Change sort"
                   onClick={() => {
-                    const order: SortKey[] = ['createdAt', 'name', 'stars'];
+                    const order: SortKey[] = ["createdAt", "name", "stars"];
                     const i = order.indexOf(sortKey);
                     setSortKey(order[(i + 1) % order.length]);
                   }}
                 />
               </div>
 
-              <Button size="sm" onClick={() => setCreateOpen((v) => !v)} className="h-8" variant={createOpen ? 'default' : 'outline'}>
+              <Button
+                size="sm"
+                onClick={() => setCreateOpen((v) => !v)}
+                className="h-8"
+                variant={createOpen ? "default" : "outline"}
+              >
                 <Plus className="mr-2 size-4" /> New
               </Button>
             </div>
@@ -836,12 +982,20 @@ export default function Library() {
                   shimmer={isLoading}
                 />
               </div>
-              <div className="text-xs opacity-70 hidden md:block">Tip: ↑/↓ + Enter to open inspector</div>
+              <div className="text-xs opacity-70 hidden md:block">
+                Tip: ↑/↓ + Enter to open inspector
+              </div>
             </div>
             {/* scope for mobile */}
             <div className="mt-2 sm:hidden inline-flex items-center gap-1 rounded-xl border p-1 bg-background/60">
-              {(['all', 'mine', 'public', 'starred'] as Scope[]).map((s) => (
-                <Button key={s} size="sm" variant={scope === s ? 'default' : 'ghost'} className="h-8 px-3" onClick={() => setScope(s)}>
+              {(["all", "mine", "public", "starred"] as Scope[]).map((s) => (
+                <Button
+                  key={s}
+                  size="sm"
+                  variant={scope === s ? "default" : "ghost"}
+                  className="h-8 px-3"
+                  onClick={() => setScope(s)}
+                >
                   {s[0].toUpperCase() + s.slice(1)}
                 </Button>
               ))}
@@ -866,35 +1020,51 @@ export default function Library() {
                     <div className="inline-flex relative p-1 rounded-xl border bg-background/60">
                       <motion.div
                         className="absolute inset-y-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20"
-                        animate={{ left: createMode === 'generate' ? 4 : 'calc(50% + 4px)', width: 'calc(50% - 8px)' }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                        animate={{
+                          left:
+                            createMode === "generate" ? 4 : "calc(50% + 4px)",
+                          width: "calc(50% - 8px)",
+                        }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 30,
+                        }}
                       />
                       <button
                         className={cx(
-                          'relative flex items-center gap-1 z-10 h-8 pr-4 pl-2 text-sm rounded-lg',
-                          createMode === 'generate' ? 'text-indigo-600' : 'opacity-80',
+                          "relative flex items-center gap-1 z-10 h-8 pr-4 pl-2 text-sm rounded-lg",
+                          createMode === "generate"
+                            ? "text-indigo-600"
+                            : "opacity-80"
                         )}
-                        onClick={() => setCreateMode('generate')}
+                        onClick={() => setCreateMode("generate")}
                       >
                         <Sparkles className="size-4" /> Generate
                       </button>
                       <button
                         className={cx(
-                          'relative flex items-center gap-1 z-10 h-8 pr-4 pl-2 text-sm rounded-lg',
-                          createMode === 'manual' ? 'text-indigo-600' : 'opacity-80',
+                          "relative flex items-center gap-1 z-10 h-8 pr-4 pl-2 text-sm rounded-lg",
+                          createMode === "manual"
+                            ? "text-indigo-600"
+                            : "opacity-80"
                         )}
-                        onClick={() => setCreateMode('manual')}
+                        onClick={() => setCreateMode("manual")}
                       >
                         <Plus className="size-4" /> Manual
                       </button>
                     </div>
 
-                    <Button size="sm" variant="ghost" onClick={() => setCreateOpen(false)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setCreateOpen(false)}
+                    >
                       Close
                     </Button>
                   </div>
 
-                  {createMode === 'generate' ? (
+                  {createMode === "generate" ? (
                     <div className="relative p-3">
                       <ShimmerOverlay show={genBusy} />
                       <div className="text-sm font-medium mb-2">Generate</div>
@@ -909,13 +1079,26 @@ export default function Library() {
                         <div className="flex items-center gap-2 text-xs opacity-70 mb-1">
                           <TagIcon className="size-3" /> Tags
                         </div>
-                        <TagInput value={genTags} onChange={setGenTags} suggestions={allTagsRaw} loading={genBusy} />
+                        <TagInput
+                          value={genTags}
+                          onChange={setGenTags}
+                          suggestions={allTagsRaw}
+                          loading={genBusy}
+                        />
                       </div>
                       <div className="mt-3 flex justify-end gap-2">
-                        <Button variant="outline" onClick={cancelGenerate} disabled={!genBusy}>
+                        <Button
+                          variant="outline"
+                          onClick={cancelGenerate}
+                          disabled={!genBusy}
+                        >
                           Cancel
                         </Button>
-                        <Button onClick={handleQuickGenerate} loading={genBusy} loadingText="Generating…">
+                        <Button
+                          onClick={handleQuickGenerate}
+                          loading={genBusy}
+                          loadingText="Generating…"
+                        >
                           Generate
                         </Button>
                       </div>
@@ -923,8 +1106,16 @@ export default function Library() {
                   ) : (
                     <div className="relative p-3">
                       <ShimmerOverlay show={creating} />
-                      <div className="text-sm font-medium mb-2">Create manually</div>
-                      <Input placeholder="Title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} loading={creating} shimmer={creating} />
+                      <div className="text-sm font-medium mb-2">
+                        Create manually
+                      </div>
+                      <Input
+                        placeholder="Title"
+                        value={newTitle}
+                        onChange={(e) => setNewTitle(e.target.value)}
+                        loading={creating}
+                        shimmer={creating}
+                      />
                       <Input
                         className="mt-2"
                         placeholder="Short description (optional)"
@@ -937,14 +1128,32 @@ export default function Library() {
                         <div className="flex items-center gap-2 text-xs opacity-70 mb-1">
                           <TagIcon className="size-3" /> Tags
                         </div>
-                        <TagInput value={newTags} onChange={setNewTags} suggestions={allTagsRaw} loading={creating} />
+                        <TagInput
+                          value={newTags}
+                          onChange={setNewTags}
+                          suggestions={allTagsRaw}
+                          loading={creating}
+                        />
                       </div>
                       <div className="mt-2">
-                        <div className="text-xs opacity-70 mb-1">Content (JSON or plain text)</div>
-                        <Textarea rows={6} placeholder="Paste structured JSON or free text." value={newContent} onChange={(e) => setNewContent(e.target.value)} loading={creating} shimmer={creating} />
+                        <div className="text-xs opacity-70 mb-1">
+                          Content (JSON or plain text)
+                        </div>
+                        <Textarea
+                          rows={6}
+                          placeholder="Paste structured JSON or free text."
+                          value={newContent}
+                          onChange={(e) => setNewContent(e.target.value)}
+                          loading={creating}
+                          shimmer={creating}
+                        />
                       </div>
                       <div className="mt-3 flex justify-end">
-                        <Button onClick={createManualContext} loading={creating} loadingText="Creating…">
+                        <Button
+                          onClick={createManualContext}
+                          loading={creating}
+                          loadingText="Creating…"
+                        >
                           Create Context
                         </Button>
                       </div>
@@ -963,7 +1172,13 @@ export default function Library() {
                 <TagFilterBox
                   allTags={allTagsRaw}
                   selected={selectedTags}
-                  onToggle={(t) => setSelectedTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))}
+                  onToggle={(t) =>
+                    setSelectedTags((prev) =>
+                      prev.includes(t)
+                        ? prev.filter((x) => x !== t)
+                        : [...prev, t]
+                    )
+                  }
                   onClear={() => setSelectedTags([])}
                   collapsedCount={18}
                   loading={!!isLoading}
@@ -978,9 +1193,17 @@ export default function Library() {
                     </div>
                   ) : (
                     <ul className="list-disc pl-4 space-y-1">
-                      <li>Star favorites to pin them (only your own contexts).</li>
-                      <li>Use Generate for fast boilerplates; Manual for full control.</li>
-                      <li>Public contexts are visible to everyone; import them to edit.</li>
+                      <li>
+                        Star favorites to pin them (only your own contexts).
+                      </li>
+                      <li>
+                        Use Generate for fast boilerplates; Manual for full
+                        control.
+                      </li>
+                      <li>
+                        Public contexts are visible to everyone; import them to
+                        edit.
+                      </li>
                     </ul>
                   )}
                 </div>
@@ -989,7 +1212,13 @@ export default function Library() {
               {/* results */}
               <section className="min-w-0">
                 {isLoading ? (
-                  <ul className={cx(view === 'grid' ? 'grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3' : 'space-y-2')}>
+                  <ul
+                    className={cx(
+                      view === "grid"
+                        ? "grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3"
+                        : "space-y-2"
+                    )}
+                  >
                     {Array.from({ length: 9 }).map((_, i) => (
                       <li key={i} className="h-full">
                         <div className="relative h-full rounded-2xl border bg-background/60 overflow-hidden p-4">
@@ -1021,9 +1250,11 @@ export default function Library() {
                 ) : filtered.length === 0 ? (
                   <div className="p-8 text-sm border rounded-2xl bg-background/60 text-center">
                     <div className="font-medium mb-1">No contexts found</div>
-                    <div className="opacity-70">Try adjusting your search or filters.</div>
+                    <div className="opacity-70">
+                      Try adjusting your search or filters.
+                    </div>
                   </div>
-                ) : view === 'grid' ? (
+                ) : view === "grid" ? (
                   <ul className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 items-stretch">
                     {filtered.map((c) => {
                       const structured = parseStructured(c.content);
@@ -1034,22 +1265,28 @@ export default function Library() {
                       const likeBusy = pending.like.has(c.id);
                       const delBusy = pending.del.has(c.id);
                       const pubBusy = pending.pub.has(c.id);
-                      const unpubBusy = c.publicId ? pending.unpub.has(c.publicId) : false;
-                      const impBusy = c.publicId ? pending.imp.has(c.publicId) : false;
+                      const unpubBusy = c.publicId
+                        ? pending.unpub.has(c.publicId)
+                        : false;
+                      const impBusy = c.publicId
+                        ? pending.imp.has(c.publicId)
+                        : false;
 
-                      const starDisabled = scope === 'public' || !c.owner;
+                      const starDisabled = scope === "public" || !c.owner;
 
                       return (
                         <li key={c.id} className="h-full">
                           <article
                             className={cx(
-                              'group relative h-full rounded-2xl border bg-background/70 transition shadow-sm hover:shadow-md',
-                              'flex flex-col p-3',
+                              "group relative h-full rounded-2xl border bg-background/70 transition shadow-sm hover:shadow-md",
+                              "flex flex-col p-3"
                             )}
                             role="button"
                             tabIndex={0}
                             onClick={() => setActiveId(c.id)}
-                            onKeyDown={(e) => e.key === 'Enter' && setActiveId(c.id)}
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && setActiveId(c.id)
+                            }
                           >
                             {/* header */}
                             <div className="flex items-start gap-3 min-w-0">
@@ -1058,7 +1295,9 @@ export default function Library() {
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <h3 className="text-sm font-semibold truncate">{title}</h3>
+                                  <h3 className="text-sm font-semibold truncate">
+                                    {title}
+                                  </h3>
                                   {c.owner && (
                                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
                                       You
@@ -1070,7 +1309,11 @@ export default function Library() {
                                     </span>
                                   )}
                                 </div>
-                                <p className="mt-0.5 text-xs opacity-70 line-clamp-3">{structured?.description || c.description || '—'}</p>
+                                <p className="mt-0.5 text-xs opacity-70 line-clamp-3">
+                                  {structured?.description ||
+                                    c.description ||
+                                    "—"}
+                                </p>
                               </div>
                             </div>
 
@@ -1078,12 +1321,22 @@ export default function Library() {
                             {c.tags?.length > 0 && (
                               <div className="mt-3 flex flex-wrap gap-1.5">
                                 {c.tags.slice(0, 5).map((t) => (
-                                  <span key={t} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]" style={{ background: colorFromTag(t), borderColor: 'transparent' }}>
+                                  <span
+                                    key={t}
+                                    className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]"
+                                    style={{
+                                      background: colorFromTag(t),
+                                      borderColor: "transparent",
+                                    }}
+                                  >
                                     #{t}
                                   </span>
                                 ))}
                                 {c.tags.length > 5 && (
-                                  <Badge variant="outline" className="text-[10px] opacity-70">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] opacity-70"
+                                  >
                                     +{c.tags.length - 5}
                                   </Badge>
                                 )}
@@ -1101,7 +1354,8 @@ export default function Library() {
                                     className="h-8 text-xs"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      if (!unpubBusy) unpublishContext(c.publicId!);
+                                      if (!unpubBusy)
+                                        unpublishContext(c.publicId!);
                                     }}
                                     loading={unpubBusy}
                                     loadingText="…"
@@ -1131,11 +1385,19 @@ export default function Library() {
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
-                                      const imported = await importPublicContext(c.publicId!);
+                                      const imported =
+                                        await importPublicContext(c.publicId!);
                                       setActiveId(imported.id);
-                                      toast({ type: 'success', description: 'Added to your library.' });
+                                      toast({
+                                        type: "success",
+                                        description: "Added to your library.",
+                                      });
                                     } catch (err: any) {
-                                      toast({ type: 'error', description: err?.message || 'Import failed' });
+                                      toast({
+                                        type: "error",
+                                        description:
+                                          err?.message || "Import failed",
+                                      });
                                     }
                                   }}
                                   loading={impBusy}
@@ -1144,7 +1406,9 @@ export default function Library() {
                                   Import
                                 </Button>
                               ) : (
-                                <span className="text-[11px] opacity-60">Shared</span>
+                                <span className="text-[11px] opacity-60">
+                                  Shared
+                                </span>
                               )}
 
                               {/* Action bar */}
@@ -1154,19 +1418,36 @@ export default function Library() {
                                     <Button
                                       size="icon"
                                       variant="ghost"
-                                      className={cx('size-8', c.liked ? 'text-yellow-500' : 'text-foreground/60')}
+                                      className={cx(
+                                        "size-8",
+                                        c.liked
+                                          ? "text-yellow-500"
+                                          : "text-foreground/60"
+                                      )}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (!starDisabled && !likeBusy) toggleLike(c.id, !!c.liked);
+                                        if (!starDisabled && !likeBusy)
+                                          toggleLike(c.id, !!c.liked);
                                       }}
-                                      aria-label={c.liked ? 'Unstar' : 'Star'}
+                                      aria-label={c.liked ? "Unstar" : "Star"}
                                       loading={likeBusy}
                                       disabled={starDisabled}
                                     >
-                                      <Star className={cx('size-4', c.liked && 'fill-yellow-500')} />
+                                      <Star
+                                        className={cx(
+                                          "size-4",
+                                          c.liked && "fill-yellow-500"
+                                        )}
+                                      />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>{starDisabled ? 'Star from Mine/All' : c.liked ? 'Unstar' : 'Star'}</TooltipContent>
+                                  <TooltipContent>
+                                    {starDisabled
+                                      ? "Star from Mine/All"
+                                      : c.liked
+                                      ? "Unstar"
+                                      : "Star"}
+                                  </TooltipContent>
                                 </Tooltip>
 
                                 {c.owner && (
@@ -1210,10 +1491,14 @@ export default function Library() {
                       const likeBusy = pending.like.has(c.id);
                       const delBusy = pending.del.has(c.id);
                       const pubBusy = pending.pub.has(c.id);
-                      const unpubBusy = c.publicId ? pending.unpub.has(c.publicId) : false;
-                      const impBusy = c.publicId ? pending.imp.has(c.publicId) : false;
+                      const unpubBusy = c.publicId
+                        ? pending.unpub.has(c.publicId)
+                        : false;
+                      const impBusy = c.publicId
+                        ? pending.imp.has(c.publicId)
+                        : false;
 
-                      const starDisabled = scope === 'public' || !c.owner;
+                      const starDisabled = scope === "public" || !c.owner;
 
                       return (
                         <li key={c.id}>
@@ -1222,7 +1507,9 @@ export default function Library() {
                             onClick={() => setActiveId(c.id)}
                             role="button"
                             tabIndex={0}
-                            onKeyDown={(e) => e.key === 'Enter' && setActiveId(c.id)}
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && setActiveId(c.id)
+                            }
                           >
                             <div className="flex items-start gap-3 min-w-0">
                               <div className="grid place-items-center rounded-lg border size-7 shrink-0 text-foreground/70">
@@ -1230,7 +1517,9 @@ export default function Library() {
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <h3 className="text-sm font-semibold truncate">{title}</h3>
+                                  <h3 className="text-sm font-semibold truncate">
+                                    {title}
+                                  </h3>
                                   {c.owner && (
                                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
                                       You
@@ -1242,17 +1531,31 @@ export default function Library() {
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-xs opacity-70 line-clamp-2">{structured?.description || c.description || '—'}</p>
+                                <p className="text-xs opacity-70 line-clamp-2">
+                                  {structured?.description ||
+                                    c.description ||
+                                    "—"}
+                                </p>
 
                                 {c.tags?.length > 0 && (
                                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                                     {c.tags.slice(0, 5).map((t) => (
-                                      <span key={t} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]" style={{ background: colorFromTag(t), borderColor: 'transparent' }}>
+                                      <span
+                                        key={t}
+                                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]"
+                                        style={{
+                                          background: colorFromTag(t),
+                                          borderColor: "transparent",
+                                        }}
+                                      >
                                         #{t}
                                       </span>
                                     ))}
                                     {c.tags.length > 5 && (
-                                      <Badge variant="outline" className="text-[10px] opacity-70">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] opacity-70"
+                                      >
                                         +{c.tags.length - 5}
                                       </Badge>
                                     )}
@@ -1267,19 +1570,36 @@ export default function Library() {
                                     <Button
                                       size="icon"
                                       variant="ghost"
-                                      className={cx('size-7', c.liked ? 'text-yellow-500' : 'text-foreground/60')}
+                                      className={cx(
+                                        "size-7",
+                                        c.liked
+                                          ? "text-yellow-500"
+                                          : "text-foreground/60"
+                                      )}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (!starDisabled && !likeBusy) toggleLike(c.id, !!c.liked);
+                                        if (!starDisabled && !likeBusy)
+                                          toggleLike(c.id, !!c.liked);
                                       }}
-                                      aria-label={c.liked ? 'Unstar' : 'Star'}
+                                      aria-label={c.liked ? "Unstar" : "Star"}
                                       loading={likeBusy}
                                       disabled={starDisabled}
                                     >
-                                      <Star className={cx('size-4', c.liked && 'fill-yellow-500')} />
+                                      <Star
+                                        className={cx(
+                                          "size-4",
+                                          c.liked && "fill-yellow-500"
+                                        )}
+                                      />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>{starDisabled ? 'Star from Mine/All' : c.liked ? 'Unstar' : 'Star'}</TooltipContent>
+                                  <TooltipContent>
+                                    {starDisabled
+                                      ? "Star from Mine/All"
+                                      : c.liked
+                                      ? "Unstar"
+                                      : "Star"}
+                                  </TooltipContent>
                                 </Tooltip>
 
                                 {c.owner ? (
@@ -1291,7 +1611,8 @@ export default function Library() {
                                         className="h-7"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          if (!unpubBusy) unpublishContext(c.publicId!);
+                                          if (!unpubBusy)
+                                            unpublishContext(c.publicId!);
                                         }}
                                         loading={unpubBusy}
                                         loadingText="…"
@@ -1335,11 +1656,21 @@ export default function Library() {
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       try {
-                                        const imported = await importPublicContext(c.publicId!);
+                                        const imported =
+                                          await importPublicContext(
+                                            c.publicId!
+                                          );
                                         setActiveId(imported.id);
-                                        toast({ type: 'success', description: 'Added to your library.' });
+                                        toast({
+                                          type: "success",
+                                          description: "Added to your library.",
+                                        });
                                       } catch (err: any) {
-                                        toast({ type: 'error', description: err?.message || 'Import failed' });
+                                        toast({
+                                          type: "error",
+                                          description:
+                                            err?.message || "Import failed",
+                                        });
                                       }
                                     }}
                                     loading={impBusy}
@@ -1396,23 +1727,42 @@ export default function Library() {
                               <div className="relative">
                                 <div className="absolute -inset-3 rounded-2xl bg-gradient-to-tr from-indigo-500/20 to-fuchsia-500/20 blur-xl" />
                                 <div className="relative grid place-items-center rounded-xl border bg-background/80 border-indigo-500/30 text-indigo-600 size-14 shadow-sm">
-                                  <div className="dark:hidden"><LumachorMark variant="white" /></div>
-                                  <div className="hidden dark:flex"><LumachorMark variant="black" /></div>
+                                  <div className="dark:hidden">
+                                    <LumachorMark variant="white" />
+                                  </div>
+                                  <div className="hidden dark:flex">
+                                    <LumachorMark variant="black" />
+                                  </div>
                                 </div>
                               </div>
                             </div>
 
                             <div>
-                              <h3 className="text-base font-semibold">No context selected</h3>
-                              <p className="text-sm opacity-70 mt-0.5">Pick a card to preview details — or create/import something new.</p>
+                              <h3 className="text-base font-semibold">
+                                No context selected
+                              </h3>
+                              <p className="text-sm opacity-70 mt-0.5">
+                                Pick a card to preview details — or
+                                create/import something new.
+                              </p>
                             </div>
 
                             <div className="flex flex-wrap items-center justify-center gap-2">
-                              <Button size="sm" className="text-xs" variant="outline" onClick={() => setScope('public')}>
+                              <Button
+                                size="sm"
+                                className="text-xs"
+                                variant="outline"
+                                onClick={() => setScope("public")}
+                              >
                                 <Search className="mr-1 size-3" />
                                 Search Public
                               </Button>
-                              <Button size="sm" variant="outline" className="text-xs" onClick={() => setCreateOpen(true)}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs"
+                                onClick={() => setCreateOpen(true)}
+                              >
                                 <Plus className="mr-1 size-3" />
                                 New Context
                               </Button>
@@ -1421,7 +1771,15 @@ export default function Library() {
                                   size="sm"
                                   variant="ghost"
                                   className="text-xs"
-                                  onClick={() => setActiveId(filtered[Math.floor(Math.random() * filtered.length)].id)}
+                                  onClick={() =>
+                                    setActiveId(
+                                      filtered[
+                                        Math.floor(
+                                          Math.random() * filtered.length
+                                        )
+                                      ].id
+                                    )
+                                  }
                                 >
                                   <Sparkles className="mr-1 size-3" />
                                   Surprise me
@@ -1431,14 +1789,23 @@ export default function Library() {
 
                             {allTagsRaw.length > 0 && (
                               <div className="mt-1">
-                                <div className="text-[11px] opacity-70 mb-1">Try filtering by a tag</div>
+                                <div className="text-[11px] opacity-70 mb-1">
+                                  Try filtering by a tag
+                                </div>
                                 <div className="flex flex-wrap justify-center gap-1.5">
                                   {allTagsRaw.slice(0, 8).map((t) => (
                                     <button
                                       key={t}
-                                      onClick={() => setSelectedTags((prev) => (prev.includes(t) ? prev : [...prev, t]))}
+                                      onClick={() =>
+                                        setSelectedTags((prev) =>
+                                          prev.includes(t) ? prev : [...prev, t]
+                                        )
+                                      }
                                       className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] transition hover:bg-foreground/5"
-                                      style={{ background: colorFromTag(t), borderColor: 'transparent' }}
+                                      style={{
+                                        background: colorFromTag(t),
+                                        borderColor: "transparent",
+                                      }}
                                     >
                                       #{t}
                                     </button>
@@ -1453,7 +1820,9 @@ export default function Library() {
                                   <Search className="size-3.5 opacity-70" />
                                   Quick preview
                                 </div>
-                                <div className="text-[11px] opacity-70 mt-1">Search titles, descriptions, or goals.</div>
+                                <div className="text-[11px] opacity-70 mt-1">
+                                  Search titles, descriptions, or goals.
+                                </div>
                               </div>
                               <div className="rounded-xl border p-2 bg-background/60">
                                 <div className="flex items-center gap-2 text-xs font-medium">
@@ -1461,7 +1830,9 @@ export default function Library() {
                                   Pin favorites
                                 </div>
                                 <div className="text-[11px] opacity-70 mt-1">
-                                  Star your own contexts from <span className="font-medium">Mine</span> or <span className="font-medium">All</span>.
+                                  Star your own contexts from{" "}
+                                  <span className="font-medium">Mine</span> or{" "}
+                                  <span className="font-medium">All</span>.
                                 </div>
                               </div>
                               <div className="rounded-xl border p-2 bg-background/60">
@@ -1470,12 +1841,18 @@ export default function Library() {
                                   Generate fast
                                 </div>
                                 <div className="text-[11px] opacity-70 mt-1">
-                                  Use <span className="font-medium">New → Generate</span> for a head start.
+                                  Use{" "}
+                                  <span className="font-medium">
+                                    New → Generate
+                                  </span>{" "}
+                                  for a head start.
                                 </div>
                               </div>
                             </div>
 
-                            <div className="text-[11px] opacity-60">Pro tip: ↑/↓ + Enter to open inspector actions</div>
+                            <div className="text-[11px] opacity-60">
+                              Pro tip: ↑/↓ + Enter to open inspector actions
+                            </div>
                           </div>
                         </div>
                       )
@@ -1488,21 +1865,48 @@ export default function Library() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 min-w-0">
-                              <h3 className="font-semibold truncate">{cleanTitle(parseStructured(active.content)?.title || active.name)}</h3>
+                              <h3 className="font-semibold truncate">
+                                {cleanTitle(
+                                  parseStructured(active.content)?.title ||
+                                    active.name
+                                )}
+                              </h3>
                               {active.owner && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700">You</span>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                                  You
+                                </span>
                               )}
                               {active.publicId && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">Public</span>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                                  Public
+                                </span>
                               )}
                             </div>
                             <div className="text-[11px] opacity-70 mt-0.5 flex flex-wrap items-center gap-2">
-                              <span>{active.owner ? 'Owned by you' : 'Shared'}</span>
-                              {active.createdAt ? <span className="opacity-60">• Created {new Date(active.createdAt).toLocaleDateString()}</span> : null}
-                              {active.tags?.length ? <span className="opacity-60">• {active.tags.length} tag{active.tags.length > 1 ? 's' : ''}</span> : null}
+                              <span>
+                                {active.owner ? "Owned by you" : "Shared"}
+                              </span>
+                              {active.createdAt ? (
+                                <span className="opacity-60">
+                                  • Created{" "}
+                                  {new Date(
+                                    active.createdAt
+                                  ).toLocaleDateString()}
+                                </span>
+                              ) : null}
+                              {active.tags?.length ? (
+                                <span className="opacity-60">
+                                  • {active.tags.length} tag
+                                  {active.tags.length > 1 ? "s" : ""}
+                                </span>
+                              ) : null}
                             </div>
                           </div>
-                          <Button size="icon" variant="ghost" onClick={() => setActiveId(null)}>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setActiveId(null)}
+                          >
                             <X className="size-4" />
                           </Button>
                         </div>
@@ -1511,13 +1915,24 @@ export default function Library() {
                         <div className="my-3 h-px bg-foreground/10" />
 
                         {/* description */}
-                        <p className="text-sm opacity-80">{parseStructured(active.content)?.description || active.description || '—'}</p>
+                        <p className="text-sm opacity-80">
+                          {parseStructured(active.content)?.description ||
+                            active.description ||
+                            "—"}
+                        </p>
 
                         {/* tags */}
                         {active.tags?.length ? (
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {active.tags.map((t) => (
-                              <span key={t} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]" style={{ background: colorFromTag(t), borderColor: 'transparent' }}>
+                              <span
+                                key={t}
+                                className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]"
+                                style={{
+                                  background: colorFromTag(t),
+                                  borderColor: "transparent",
+                                }}
+                              >
                                 #{t}
                               </span>
                             ))}
@@ -1532,14 +1947,28 @@ export default function Library() {
                             <div className="mt-3 grid gap-3">
                               {sc.background_goals?.length ? (
                                 <div className="rounded-xl border bg-background/60 p-2.5">
-                                  <div className="text-[11px] font-medium opacity-70 mb-1">Goals</div>
-                                  <ul className="text-[12px] space-y-1 list-disc pl-4">{sc.background_goals.map((g, i) => <li key={i}>{g}</li>)}</ul>
+                                  <div className="text-[11px] font-medium opacity-70 mb-1">
+                                    Goals
+                                  </div>
+                                  <ul className="text-[12px] space-y-1 list-disc pl-4">
+                                    {sc.background_goals.map((g, i) => (
+                                      <li key={i}>{g}</li>
+                                    ))}
+                                  </ul>
                                 </div>
                               ) : null}
                               {sc.example_prompts?.length ? (
                                 <div className="rounded-xl border bg-background/60 p-2.5">
-                                  <div className="text-[11px] font-medium opacity-70 mb-1">Examples</div>
-                                  <ul className="text-[12px] space-y-1 list-disc pl-4">{sc.example_prompts.map((g, i) => <li key={i} className="break-words">{g}</li>)}</ul>
+                                  <div className="text-[11px] font-medium opacity-70 mb-1">
+                                    Examples
+                                  </div>
+                                  <ul className="text-[12px] space-y-1 list-disc pl-4">
+                                    {sc.example_prompts.map((g, i) => (
+                                      <li key={i} className="break-words">
+                                        {g}
+                                      </li>
+                                    ))}
+                                  </ul>
                                 </div>
                               ) : null}
                             </div>
@@ -1549,7 +1978,11 @@ export default function Library() {
                         {/* action bar */}
                         <div className="mt-3 rounded-xl border bg-background/60 p-2">
                           <div className="flex flex-wrap items-center gap-2">
-                            <Button size="sm" onClick={() => void openInChat(active)} className="h-8">
+                            <Button
+                              size="sm"
+                              onClick={() => void openInChat(active)}
+                              className="h-8"
+                            >
                               Use in chat
                             </Button>
 
@@ -1561,10 +1994,21 @@ export default function Library() {
                                     variant="outline"
                                     className="h-8"
                                     onClick={() => {
-                                      navigator.clipboard.writeText(active.content).then(
-                                        () => toast({ type: 'success', description: 'Copied JSON/text content.' }),
-                                        () => toast({ type: 'error', description: 'Copy failed.' }),
-                                      );
+                                      navigator.clipboard
+                                        .writeText(active.content)
+                                        .then(
+                                          () =>
+                                            toast({
+                                              type: "success",
+                                              description:
+                                                "Copied JSON/text content.",
+                                            }),
+                                          () =>
+                                            toast({
+                                              type: "error",
+                                              description: "Copy failed.",
+                                            })
+                                        );
                                     }}
                                   >
                                     <Copy className="size-4" />
@@ -1585,7 +2029,10 @@ export default function Library() {
                                       onClick={() => {
                                         const url = `${location.origin}/public/${active.publicId}`;
                                         navigator.clipboard.writeText(url);
-                                        toast({ type: 'success', description: 'Public link copied.' });
+                                        toast({
+                                          type: "success",
+                                          description: "Public link copied.",
+                                        });
                                       }}
                                     >
                                       <LinkIcon className="size-4" />
@@ -1599,16 +2046,27 @@ export default function Library() {
                             {/* Star disabled for Public scope or non-owned */}
                             <Button
                               size="sm"
-                              variant={active.liked ? 'default' : 'outline'}
+                              variant={active.liked ? "default" : "outline"}
                               className="h-8"
                               onClick={() => {
-                                if (!(scope === 'public' || !active.owner)) toggleLike(active.id, !!active.liked);
+                                if (!(scope === "public" || !active.owner))
+                                  toggleLike(active.id, !!active.liked);
                               }}
                               loading={pending.like.has(active.id)}
-                              disabled={scope === 'public' || !active.owner}
-                              title={scope === 'public' || !active.owner ? 'Star from Mine/All' : undefined}
+                              disabled={scope === "public" || !active.owner}
+                              title={
+                                scope === "public" || !active.owner
+                                  ? "Star from Mine/All"
+                                  : undefined
+                              }
                             >
-                              <Star className={cx('size-4', active.liked && 'fill-yellow-500 text-yellow-500')} />
+                              <Star
+                                className={cx(
+                                  "size-4",
+                                  active.liked &&
+                                    "fill-yellow-500 text-yellow-500"
+                                )}
+                              />
                             </Button>
 
                             <div className="ml-auto flex items-center gap-2">
@@ -1622,14 +2080,20 @@ export default function Library() {
                                             size="sm"
                                             variant="outline"
                                             className="h-8"
-                                            onClick={() => unpublishContext(active.publicId!)}
-                                            loading={pending.unpub.has(active.publicId!)}
+                                            onClick={() =>
+                                              unpublishContext(active.publicId!)
+                                            }
+                                            loading={pending.unpub.has(
+                                              active.publicId!
+                                            )}
                                             loadingText="…"
                                           >
                                             <UploadCloud className="size-4" />
                                           </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>Unpublish context</TooltipContent>
+                                        <TooltipContent>
+                                          Unpublish context
+                                        </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
                                   ) : (
@@ -1640,14 +2104,18 @@ export default function Library() {
                                             size="sm"
                                             variant="outline"
                                             className="h-8"
-                                            onClick={() => publishContext(active.id)}
+                                            onClick={() =>
+                                              publishContext(active.id)
+                                            }
                                             loading={pending.pub.has(active.id)}
                                             loadingText="…"
                                           >
                                             <UploadCloud className="size-4" />
                                           </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>Publish context</TooltipContent>
+                                        <TooltipContent>
+                                          Publish context
+                                        </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
                                   )}
@@ -1658,14 +2126,18 @@ export default function Library() {
                                           size="sm"
                                           variant="destructive"
                                           className="h-8"
-                                          onClick={() => deleteContext(active.id)}
+                                          onClick={() =>
+                                            deleteContext(active.id)
+                                          }
                                           loading={pending.del.has(active.id)}
                                           loadingText="…"
                                         >
                                           <Trash2 className="size-4" />
                                         </Button>
                                       </TooltipTrigger>
-                                      <TooltipContent>Delete context</TooltipContent>
+                                      <TooltipContent>
+                                        Delete context
+                                      </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
                                 </>
@@ -1679,20 +2151,35 @@ export default function Library() {
                                         className="h-8"
                                         onClick={async () => {
                                           try {
-                                            const imported = await importPublicContext(active.publicId!);
+                                            const imported =
+                                              await importPublicContext(
+                                                active.publicId!
+                                              );
                                             setActiveId(imported.id);
-                                            toast({ type: 'success', description: 'Added to your library.' });
+                                            toast({
+                                              type: "success",
+                                              description:
+                                                "Added to your library.",
+                                            });
                                           } catch (err: any) {
-                                            toast({ type: 'error', description: err?.message || 'Import failed' });
+                                            toast({
+                                              type: "error",
+                                              description:
+                                                err?.message || "Import failed",
+                                            });
                                           }
                                         }}
-                                        loading={pending.imp.has(active.publicId!)}
+                                        loading={pending.imp.has(
+                                          active.publicId!
+                                        )}
                                         loadingText="…"
                                       >
                                         <Download className="size-4" />
                                       </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Import context</TooltipContent>
+                                    <TooltipContent>
+                                      Import context
+                                    </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
                               ) : null}

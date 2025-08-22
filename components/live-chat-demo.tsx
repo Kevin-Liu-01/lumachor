@@ -101,7 +101,7 @@ const AssistantMessage = ({ children }: { children: ReactNode }) => (
         <LumachorMark variant="black" />
       </div>
     </div>
-    <div className="bg-background border border-white/10 rounded-2xl rounded-bl-md p-3 max-w-sm">
+    <div className="bg-background border border-white/10 rounded-2xl rounded-tl-md p-3 max-w-sm">
       {children}
     </div>
   </motion.div>
@@ -317,7 +317,7 @@ export const LiveChatDemo = () => {
   const isBusy = pillState === "busy";
 
   return (
-    <div className="rounded-2xl border border-zinc/10 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-2 sm:p-4 backdrop-blur-sm mt-12 max-w-3xl mx-auto h-[520px] flex flex-col">
+    <div className="rounded-3xl border border-zinc/10 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-2 sm:p-4 backdrop-blur-sm mt-12 max-w-3xl mx-auto h-[36rem] flex flex-col">
       <ContextSelectedBar
         context={context}
         onClear={() => {}}
@@ -328,7 +328,7 @@ export const LiveChatDemo = () => {
       <div className="flex-1 flex flex-col gap-4 overflow-hidden p-4">
         <AnimatePresence>{messages}</AnimatePresence>
       </div>
-      <div className="mt-auto p-2 space-y-2">
+      <div className="mt-auto pb-1 pt-2 px-2 space-y-2 ">
         <div
           className={clsx(
             "relative flex border items-center gap-2 rounded-full px-3 py-1.5 shadow-sm",
@@ -355,15 +355,26 @@ export const LiveChatDemo = () => {
             </motion.span>
           </AnimatePresence>
           <div className="ml-auto flex items-center">
-            <button
-              type="button"
-              className="h-7 px-3 gap-1 rounded-2xl flex items-center border border-white/10 bg-black/20 hover:bg-black/30"
-            >
-              <LibraryBig className="size-4 text-white/70" />
-              <span className="hidden sm:inline text-xs text-white/70">
-                Context
-              </span>
-            </button>
+            <AnimatePresence>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              >
+                <button
+                  onClick={() =>
+                    router.push(
+                      `/?context=04e96b29-4140-41dc-b59a-f362f174815c`
+                    )
+                  }
+                  className="h-7 truncate px-3 group font-medium relative inline-flex items-center justify-center gap-2 rounded-full text-xs text-white border border-white/10 bg-black/20 hover:bg-purple-600/30 transition-all duration-300 hover:scale-[1.02]"
+                >
+                  <PlayCircle className="size-4 transition-transform duration-300 group-hover:rotate-180" />
+                  Try <span className="hidden sm:inline">This</span> Context
+                </button>
+              </motion.div>
+            </AnimatePresence>
           </div>
           <ProgressStripe
             show={isBusy || pillState === "streaming-context"}
@@ -389,26 +400,6 @@ export const LiveChatDemo = () => {
             </button>
           </div>
         </div>
-        {/* "Try it out" Button Overlay */}
-        <AnimatePresence>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="w-full flex"
-          >
-            <button
-              onClick={() =>
-                router.push(`/?context=04e96b29-4140-41dc-b59a-f362f174815c`)
-              }
-              className="group font-medium relative inline-flex items-center justify-center gap-3 rounded-xl text-sm ml-auto text-white px-3 py-2 bg-indigo-600/50 hover:bg-indigo-700/80 transition-all duration-300 hover:scale-[1.02]"
-            >
-              <PlayCircle className="size-5 transition-transform duration-300 group-hover:rotate-180" />
-              Try This Context
-            </button>
-          </motion.div>
-        </AnimatePresence>
       </div>
     </div>
   );

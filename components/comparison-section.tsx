@@ -53,7 +53,7 @@ const comparisonData = [
       color: "red",
     },
     withResponse:
-      "Subject: ✨ Your Most Productive Day Starts Now.\n\nMeet Flow, the new app that turns chaos into clarity. Stop juggling tasks and start achieving your goals. First 1000 users get 50% off!",
+      "Subject: Your Most Productive Day Starts Now.\n\nMeet Flow, the new app that turns chaos into clarity. Stop juggling tasks and start achieving your goals. First 1000 users get 50% off!",
     withAnalysis: {
       title: "Engaging & Compelling",
       text: "The context helps the AI adopt a marketing tone, using an exciting subject, benefit-oriented language, and a clear call-to-action with urgency.",
@@ -94,7 +94,7 @@ const messageVariants = {
 
 const UserMessage = ({ children }: { children: ReactNode }) => (
   <motion.div variants={messageVariants} className="flex justify-end">
-    <div className="bg-indigo-600 text-white rounded-lg rounded-br-none p-3 max-w-sm text-sm shadow-md">
+    <div className="bg-indigo-600 text-white rounded-xl rounded-br-md p-3 max-w-sm text-sm shadow-md">
       {children}
     </div>
   </motion.div>
@@ -151,7 +151,7 @@ const AssistantMessage = ({
     <div className="shrink-0 size-8 grid place-items-center rounded-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10">
       {avatar}
     </div>
-    <div className="bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-slate-200 border border-slate-200 dark:border-white/10 rounded-lg rounded-bl-none p-3 max-w-sm text-sm transition-transform duration-300 group-hover:scale-[1.02]">
+    <div className="bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-slate-200 border border-slate-200 dark:border-white/10 rounded-xl rounded-tl-md p-3 max-w-sm text-sm transition-transform duration-300 group-hover:scale-[1.02]">
       {children}
     </div>
     <div className="hidden lg:block">
@@ -167,8 +167,10 @@ const ContextMessage = ({ children }: { children: ReactNode }) => (
     variants={messageVariants}
     className="flex justify-center items-center gap-2 text-sm text-indigo-500 dark:text-indigo-400 py-3"
   >
-    <Zap className="size-4 animate-pulse" />
-    <p>{children}</p>
+    <span className="ml-2 inline-flex items-center gap-1 px-4 py-2 text-[0.8rem] rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">
+      <Zap className="size-3 animate-pulse" />
+      <p>{children}</p>
+    </span>
   </motion.div>
 );
 
@@ -177,9 +179,11 @@ export function ComparisonSection() {
   const [hoveredAnalysis, setHoveredAnalysis] = useState<string | null>(null);
 
   return (
-    <div className="mt-16 relative rounded-2xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-zinc-900/50 p-4 sm:p-8 backdrop-blur-xl shadow-2xl shadow-slate-600/10 dark:shadow-black/20">
-      <div className="absolute -top-1/2 left-1/2 -z-10 size-96 -translate-x-1/2 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl" />
-      <div className="flex z-10 justify-center mb-8">
+    <div className="mt-16 relative rounded-2xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-zinc-900/50 p-4 sm:p-8 backdrop-blur-sm shadow-2xl shadow-slate-600/10 dark:shadow-black/20">
+      <div className="absolute -top-40 left-1/2 -z-10 size-[50rem] -translate-x-1/2 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl" />
+
+      {/* <div className="absolute -top-1/2 left-1/2 -z-10 size-96 -translate-x-1/2 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl" /> */}
+      <div className="flex z-30 relative justify-center mb-8">
         <div className="flex items-center gap-2 p-1 rounded-full border border-slate-200 dark:border-white/10 bg-slate-100/80 dark:bg-zinc-900/80">
           {comparisonData.map((item, index) => (
             <button
@@ -221,11 +225,11 @@ export function ComparisonSection() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div className="h-full">
-              <h3 className="text-lg font-semibold text-center text-red-500 dark:text-red-400">
-                Without Lumachor
+              <h3 className="flex items-center justify-center gap-2 text-lg font-semibold text-red-500 dark:text-red-400">
+                <AlertCircle className="size-4" /> Without Lumachor
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground mb-4 text-center">
-                Generic & Unhelpful
+              <p className="mt-1 text-xs text-muted-foreground mb-4 text-center italic">
+                Answers that sound right but don’t help you move forward
               </p>
               <motion.div
                 className="space-y-4 rounded-lg border border-dashed border-slate-300 dark:border-white/10 p-4 min-h-[320px] bg-slate-50 dark:bg-transparent"
@@ -256,11 +260,11 @@ export function ComparisonSection() {
               </motion.div>
             </div>
             <div className="h-full">
-              <h3 className="text-lg font-semibold text-center text-green-500 dark:text-green-400">
-                With Lumachor
+              <h3 className="flex items-center justify-center gap-2 text-lg font-semibold text-green-500 dark:text-green-400">
+                <CheckCircle className="size-4" /> With Lumachor
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground mb-4 text-center">
-                Precise & Actionable
+              <p className="mt-1 text-xs text-muted-foreground mb-4 text-center italic">
+                Context-aware, actionable advice you can trust
               </p>
               <motion.div
                 className="space-y-4 rounded-lg border border-indigo-500/30 p-4 min-h-[320px] bg-indigo-500/5 dark:bg-indigo-500/10"

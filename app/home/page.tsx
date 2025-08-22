@@ -93,7 +93,7 @@ const GlassCard = ({
 }) => (
   <div
     className={clsx(
-      "rounded-2xl border border-white/10 bg-white/5 p-2 backdrop-blur-sm",
+      "rounded-2xl border border-white/10 bg-white/5 p-3 sm:p-6 backdrop-blur-sm",
       className
     )}
   >
@@ -168,7 +168,7 @@ const TiltCard = ({
         transformStyle: "preserve-3d",
       }}
       className={clsx(
-        "relative rounded-xl border border-white/10 bg-white/5 shadow-2xl shadow-indigo-500/20 transition-transform duration-500 ease-out",
+        "relative rounded-xl border hover:z-50 border-white/10 bg-white/5 shadow-2xl shadow-indigo-500/20 transition-transform duration-500 ease-out",
         className
       )}
     >
@@ -181,7 +181,7 @@ const TiltCard = ({
           alt={alt}
           width={1200}
           height={724}
-          className="rounded-[0.7rem] border border-white/10"
+          className="rounded-[0.7rem] hover:scale-[1.15] transition-all border border-white/10"
         />
       </div>
     </motion.div>
@@ -217,7 +217,7 @@ const HeroImageCarousel = () => {
   }, [images.length]);
 
   return (
-    <div className="relative mt-16 sm:mt-40 max-w-5xl h-48 mx-auto">
+    <div className="relative mt-16 sm:mt-40 max-w-5xl h-48 mx-auto px-4 sm:px-0">
       {/* Bottom Fade */}
       <div className="absolute z-30 inset-x-0 -bottom-1/2 w-screen h-1/2 bg-gradient-to-t from-background to-transparent" />
 
@@ -435,7 +435,7 @@ const LandingPage: NextPage = () => {
               {/* --- Step 1 --- */}
               <motion.div
                 variants={FADE_IN_ANIMATION_VARIANTS}
-                className="flex max-w-xs flex-col items-center gap-3 text-center"
+                className="flex max-w-xs w-full flex-col items-center gap-3 text-center"
               >
                 <div className="relative">
                   <div className="absolute -inset-2 rounded-full bg-indigo-500/10 blur-xl"></div>
@@ -479,7 +479,7 @@ const LandingPage: NextPage = () => {
               {/* --- Step 2 --- */}
               <motion.div
                 variants={FADE_IN_ANIMATION_VARIANTS}
-                className="flex max-w-xs flex-col items-center gap-3 text-center"
+                className="flex max-w-xs w-full flex-col items-center gap-3 text-center"
               >
                 <div className="relative">
                   <div className="absolute -inset-4 rounded-full bg-fuchsia-500/10 blur-2xl"></div>
@@ -535,7 +535,7 @@ const LandingPage: NextPage = () => {
               {/* --- Step 3 --- */}
               <motion.div
                 variants={FADE_IN_ANIMATION_VARIANTS}
-                className="flex max-w-xs flex-col items-center gap-3 text-center"
+                className="flex max-w-xs w-full flex-col items-center gap-3 text-center"
               >
                 <div className="relative">
                   <div className="absolute -inset-2 rounded-full bg-green-500/10 blur-xl"></div>
@@ -556,7 +556,7 @@ const LandingPage: NextPage = () => {
         <SectionWrapper id="demo">
           <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionHeader
-              badge="See Lumachor in Action"
+              badge="SEE LUMACHOR IN ACTION"
               title="From Query to Expert Response"
               description="Watch how our engine seamlessly generates and applies context in real-time to transform a simple question into a studio-level answer."
             />
@@ -574,7 +574,7 @@ const LandingPage: NextPage = () => {
                   badge="INSTANT CONTEXT GENERATION"
                   title="The Context Dock"
                   description="Never start from a blank slate. Just describe what you need, and the Context Dock generates a comprehensive, structured context template in seconds."
-                  className="text-left"
+                  className="text-center sm:text-left"
                 />
                 <div className="relative mt-8 flex flex-col gap-6 text-left">
                   <div className="flex items-start gap-4">
@@ -606,8 +606,8 @@ const LandingPage: NextPage = () => {
               </div>
               <motion.div variants={FADE_IN_ANIMATION_VARIANTS}>
                 <GlassCard>
-                  <div className="relative p-4">
-                    <div className="absolute -top-0 left-1/2 -z-10 size-[25rem] -translate-x-1/2 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl" />
+                  <div className="absolute -top-1/3 left-1/2 -z-10 size-[40rem] -translate-x-1/2 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl" />
+                  <Link href="/">
                     <ThemedImage
                       lightSrc="/images/dock-light.png"
                       darkSrc="/images/dock-dark.png"
@@ -616,7 +616,7 @@ const LandingPage: NextPage = () => {
                       height={1080}
                       className="rounded-lg border border-white/10"
                     />
-                  </div>
+                  </Link>
                 </GlassCard>
               </motion.div>
             </div>
@@ -627,7 +627,7 @@ const LandingPage: NextPage = () => {
                   badge="TAGGED & CURATED"
                   title="The Context Library"
                   description="Your central hub for all contexts. Browse our curated collection or manage your own creations with powerful search and filtering."
-                  className="text-left"
+                  className="text-center sm:text-left"
                 />
                 <div className="mt-8 flex flex-col gap-6 text-left">
                   <div className="flex items-start gap-4">
@@ -664,9 +664,8 @@ const LandingPage: NextPage = () => {
                 className="lg:order-first"
               >
                 <GlassCard>
-                  <div className="p-4">
-                    <div className="absolute -top-0 left-1/2 -z-10 size-[25rem] -translate-x-1/2 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl" />
-
+                  <div className="absolute -top-1/3 left-1/2 -z-10 size-[40rem] -translate-x-1/2 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl" />
+                  <Link href="/library">
                     <ThemedImage
                       lightSrc="/images/library-light.png"
                       darkSrc="/images/library-dark.png"
@@ -675,7 +674,7 @@ const LandingPage: NextPage = () => {
                       height={1454}
                       className="rounded-lg border border-white/10"
                     />
-                  </div>
+                  </Link>
                 </GlassCard>
               </motion.div>
             </div>

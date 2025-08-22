@@ -79,7 +79,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             </Tooltip>
           ) : (
             <Link
-              href="/"
+              href="/home"
               onClick={() => setOpenMobile(false)}
               className="flex items-center gap-2 rounded-xl p-1.5 pr-3 hover:bg-gradient-to-r hover:from-indigo-500/[0.08] hover:to-fuchsia-500/[0.08] transition"
             >

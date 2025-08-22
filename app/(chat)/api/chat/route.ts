@@ -281,7 +281,7 @@ export async function POST(request: Request) {
       console.log('[LLM REQUEST]', {
         model: selectedChatModel,
         chatId: id,
-        contextIds,
+        // contextIds,
         systemPreview,
         messagesCount: modelMessages.length,
         messages: modelMessages, // shows the synthetic context message too

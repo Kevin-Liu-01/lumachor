@@ -13,6 +13,7 @@ import {
 import { ChevronDown, ChevronUp, LibraryBig, X } from "lucide-react";
 import cx from "classnames";
 import LumachorMark from "./lumachormark";
+import { TooltipProvider } from "@radix-ui/react-tooltip";
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -209,43 +210,45 @@ function ContextSelectedBarImpl({
               )}
             </Button>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-7"
-                  onClick={() => {
-                    setIsExpanded(true);
-                    setDetailsOpen(true); // jump straight to details if user is switching
-                    onOpenContexts();
-                  }}
-                  aria-label="Change context"
-                >
-                  <LibraryBig className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Change context</TooltipContent>
-            </Tooltip>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-7"
+                    onClick={() => {
+                      setIsExpanded(true);
+                      setDetailsOpen(true); // jump straight to details if user is switching
+                      onOpenContexts();
+                    }}
+                    aria-label="Change context"
+                  >
+                    <LibraryBig className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Change context</TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-7"
-                  onClick={() => {
-                    setIsExpanded(false);
-                    setDetailsOpen(false);
-                    onClear();
-                  }}
-                  aria-label="Clear context"
-                >
-                  <X className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Clear</TooltipContent>
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-7"
+                    onClick={() => {
+                      setIsExpanded(false);
+                      setDetailsOpen(false);
+                      onClear();
+                    }}
+                    aria-label="Clear context"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clear</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </motion.div>
 

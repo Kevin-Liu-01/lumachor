@@ -38,7 +38,7 @@ export function TopStripeLoader({ show }: { show: boolean }) {
   return (
     <span
       aria-hidden
-      className="pointer-events-none absolute inset-x-0 -top-px h-[2px] overflow-hidden"
+      className="pointer-events-none mx-4 absolute inset-x-0 -top-px h-[2px] overflow-hidden"
     >
       <motion.span
         className="absolute top-0 h-[2px] w-[45%] rounded-full bg-gradient-to-r from-transparent via-fuchsia-500 to-transparent"

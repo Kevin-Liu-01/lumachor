@@ -368,10 +368,12 @@ export const LiveChatDemo = () => {
                       `/?context=04e96b29-4140-41dc-b59a-f362f174815c`
                     )
                   }
-                  className="h-7 truncate px-3 group font-medium relative inline-flex items-center justify-center gap-2 rounded-full text-xs text-white border border-white/10 bg-black/20 hover:bg-purple-600/30 transition-all duration-300 hover:scale-[1.02]"
+                  className="h-7 truncate px-3 group font-medium relative inline-flex items-center justify-center gap-2 rounded-full text-xs border border-white/10 bg-purple-600/20 hover:bg-purple-600/30 transition-all duration-300 hover:scale-[1.02]"
                 >
                   <PlayCircle className="size-4 transition-transform duration-300 group-hover:rotate-180" />
-                  Try <span className="hidden sm:inline">This</span> Context
+                  <span className="">
+                    Use <span className="hidden sm:inline">This</span> Context
+                  </span>
                 </button>
               </motion.div>
             </AnimatePresence>

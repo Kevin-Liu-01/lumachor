@@ -146,7 +146,7 @@ const AssistantMessage = ({
 }) => (
   <motion.div
     variants={messageVariants}
-    className="relative flex justify-start items-start gap-3 group"
+    className="relative cursor-pointer flex justify-start items-start gap-3 group"
   >
     <div className="shrink-0 size-8 grid place-items-center rounded-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10">
       {avatar}
